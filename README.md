@@ -1,0 +1,2 @@
+# Agri-Early-warning-system
+EXPLAINABLE AI BASED EARLY WARNING SYSTEM
