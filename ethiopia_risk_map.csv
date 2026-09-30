@@ -1,0 +1,11 @@
+Region,Predicted_Risk,Risk_Category
+Afar,1.3149171270718232,High Risk
+Amhara,0.6055555555555555,Medium Risk
+Benishangul Gumuz,0.6111111111111112,Medium Risk
+Dire Dawa,0.8791208791208791,Medium Risk
+Gambela,1.4751381215469612,High Risk
+Harari,0.6222222222222222,Medium Risk
+Oromia,0.6201117318435754,Medium Risk
+SNNPR,0.6277777777777778,Medium Risk
+Somali,1.2142857142857142,High Risk
+Tigray,0.5,Low Risk
