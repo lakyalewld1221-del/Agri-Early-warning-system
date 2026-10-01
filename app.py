@@ -1,4 +1,3 @@
-
 # =====================================================
 # AGRICULTURAL EARLY WARNING SYSTEM AND
 # Explainable AI-Based Food Security Risk Mapping
@@ -16,7 +15,6 @@ import io
 from contextlib import redirect_stdout
 import json
 import seaborn as sns
-# from tensorflow.keras.models import load_model # Removed: Not needed for joblib.load
 
 # =====================================================
 # PAGE CONFIGURATION
@@ -26,7 +24,6 @@ st.set_page_config(
     page_title="Agricultural Early Warning System",
     page_icon="🌾",
     layout="wide",
-
 )
 
 # =====================================================
@@ -70,7 +67,7 @@ def load_random_forest():
 
 @st.cache_resource
 def load_mlp_model():
-    return joblib.load("mlp_model.pkl") # Changed from load_model("mlp_model.h5")
+    return joblib.load("mlp_model.pkl")
 
 xgb_model = load_xgboost()
 rf_model = load_random_forest()
@@ -82,6 +79,7 @@ st.success("Application loaded successfully!")
 
 st.write("Dataset shape:", df.shape)
 st.write("Risk map shape:", risk_df.shape)
+
 # =====================================================
 # SIDEBAR
 # =====================================================
@@ -114,6 +112,9 @@ This application predicts food security risk using:
 Country: Ethiopia
 """
 )
+
+st.sidebar.markdown("---")
+
 # =====================================================
 # HOME PAGE
 # =====================================================
@@ -150,7 +151,7 @@ This dashboard helps predict food security risk using machine learning and provi
     col1.metric("Records", len(df))
     col2.metric("Regions", df["Region"].nunique())
     col3.metric("Crop Types", df["crop type"].nunique())
-st.sidebar.markdown("---")
+
 # =====================================================
 # DATASET PAGE
 # =====================================================
@@ -188,7 +189,6 @@ elif page == "🤖 Early Warning Prediction":
     # Re-initialize encoders with the full dataset for prediction consistency
     region_encoder = LabelEncoder()
     crop_encoder = LabelEncoder()
-    # Fit on unique values from the full dataframe to avoid errors on unseen labels
     region_encoder.fit(df['Region'].unique())
     crop_encoder.fit(df['crop type'].unique())
 
@@ -205,8 +205,6 @@ elif page == "🤖 Early Warning Prediction":
         area_cultivated = st.number_input("Area cultivated(Ha)", min_value=0.0, value=float(df['Area cultivated(Ha)'].median()))
         production_kg = st.number_input("Production(kg)", min_value=0.0, value=float(df['Production(kg)'].median()))
 
-        # For engineered features, for simplicity, use median values from the dataset
-        # In a more robust app, these would be calculated based on historical data or more complex user inputs
         yield_growth_rate = st.number_input("Yield Growth Rate", value=float(df['Yield_Growth_Rate'].median()))
         production_growth_rate = st.number_input("Production Growth Rate", value=float(df['Production_Growth_Rate'].median()))
         area_efficiency = st.number_input("Area Efficiency", value=float(df['Area_Efficiency'].median()))
@@ -240,11 +238,8 @@ elif page == "🤖 Early Warning Prediction":
             'Early_Warning_Score'
         ])
 
-        # Make prediction (using XGBoost for consistency with explainability section)
-        # If you want to use MLP here, you would need to scale input_data and then predict
         prediction = xgb_model.predict(input_data)[0]
 
-        # Map prediction to risk label and color (re-use functions from notebook)
         def map_risk_to_name(risk_level):
             risk_names = {0: "Low Risk", 1: "Medium Risk", 2: "High Risk"}
             return risk_names.get(risk_level, "Unknown Risk")
@@ -279,7 +274,6 @@ elif page == "🔍 Explainable AI":
     st.subheader("Global Feature Importance")
     st.markdown("This plot shows the overall importance of each feature across the entire dataset.")
 
-    # Generate SHAP values (use a sample for performance if X_test is very large)
     if len(X_test) > 1000:
         sample_X_test = X_test.sample(1000, random_state=42)
     else:
@@ -288,7 +282,6 @@ elif page == "🔍 Explainable AI":
     explainer = shap.TreeExplainer(xgb_model)
     shap_values = explainer.shap_values(sample_X_test)
 
-    # SHAP Summary Plot
     fig, ax = plt.subplots()
     shap.summary_plot(shap_values, sample_X_test, plot_type="bar", show=False)
     st.pyplot(fig)
@@ -299,9 +292,10 @@ elif page == "🔍 Explainable AI":
     st.subheader("Individual Prediction Explanation")
     st.markdown("Select an instance to see how each feature contributes to its specific risk prediction.")
 
-    # Allow user to select an instance
-    instance_index = st.number_input("Select an instance index from the test set (0 to {})".format(len(X_test) - 1),
-                                     min_value=0, max_value=len(X_test) - 1, value=0, step=1)
+    instance_index = st.number_input(
+        "Select an instance index from the test set (0 to {})".format(len(X_test) - 1),
+        min_value=0, max_value=len(X_test) - 1, value=0, step=1
+    )
 
     if instance_index is not None:
         selected_instance = X_test.iloc[[instance_index]]
@@ -309,28 +303,22 @@ elif page == "🔍 Explainable AI":
 
         st.write(f"Showing explanation for instance {instance_index}:")
 
-        # Display the instance's predicted risk
         predicted_risk_level = xgb_model.predict(selected_instance)[0]
         risk_names = {0: "Low Risk", 1: "Medium Risk", 2: "High Risk"}
         predicted_risk_name = risk_names.get(predicted_risk_level, "Unknown Risk")
         st.write(f"Predicted Risk: **{predicted_risk_name}** (Level {predicted_risk_level})")
 
-        # For multi-output models, shap_values is a list of arrays, one for each class.
-        # We usually pick the shap values for the predicted class.
-        # Check explainer.expected_value for multi-output case
         if isinstance(explainer.expected_value, list):
-            # Take the expected value for the predicted class
             expected_value_for_plot = explainer.expected_value[predicted_risk_level]
             shap_values_for_plot = selected_shap_values[predicted_risk_level]
         else:
             expected_value_for_plot = explainer.expected_value
             shap_values_for_plot = selected_shap_values[0]
 
-        # Force plot requires matplotlib backend for Streamlit
-        st.set_option('deprecation.showPyplotGlobalUse', False) # Suppress warning
+        st.set_option('deprecation.showPyplotGlobalUse', False)
         shap.force_plot(expected_value_for_plot, shap_values_for_plot, selected_instance)
         st.pyplot(bbox_inches='tight')
-        st.set_option('deprecation.showPyplotGlobalUse', True) # Re-enable warning if needed
+        st.set_option('deprecation.showPyplotGlobalUse', True)
 
 # =====================================================
 # RISK ANALYSIS PAGE
@@ -340,12 +328,10 @@ elif page == "📊 Risk Analysis":
     st.title("📊 Food Security Risk Analysis")
     st.write("Detailed analysis and visualization of food security risk.")
 
-    # Regional Risk Summary
     st.subheader("Regional Risk Summary")
     st.write("Average predicted risk and categories by region.")
     st.dataframe(risk_df)
 
-    # Bar chart of Average Risk by Region
     st.subheader("Average Risk Score by Region")
     fig = px.bar(
         risk_df,
@@ -357,13 +343,10 @@ elif page == "📊 Risk Analysis":
     )
     st.plotly_chart(fig, use_container_width=True)
 
-    # Risk Trend Over Time Heatmap
     st.subheader("Regional Food Security Risk Trend Over Time")
     st.write("This heatmap shows the average predicted risk for each region across different years.")
 
-    # Create a temporary DataFrame for regional risk prediction over time
     temp_df = df.copy()
-    # Ensure features are consistent with what the model expects
     model_features = [
         'Region_Code', 'Crop_Code', 'Year', 'Area cultivated(Ha)', 'Production(kg)',
         'Yield_Growth_Rate', 'Production_Growth_Rate', 'Area_Efficiency',
@@ -372,7 +355,6 @@ elif page == "📊 Risk Analysis":
         'Early_Warning_Score'
     ]
 
-    # Handle potential inf/-inf values before prediction
     temp_df[model_features] = temp_df[model_features].replace([np.inf, -np.inf], np.nan)
     for col in model_features:
         if temp_df[col].isnull().any():
@@ -394,7 +376,6 @@ elif page == "📊 Risk Analysis":
     plt.ylabel("Region")
     st.pyplot(plt)
 
-    # High Risk Regions List
     st.subheader("High Risk Regions")
     high_risk_regions = risk_df[risk_df['Risk_Category'] == 'High Risk']
     if not high_risk_regions.empty:
@@ -410,8 +391,6 @@ elif page == "🗺️ Ethiopia Risk Map":
     st.title("🗺️ Ethiopia Food Security Risk Map")
     st.write("Geographical visualization of food security risk across Ethiopian regions.")
 
-    # Merge risk_df with geojson data for mapping
-    # Ensure 'Region' column in risk_df matches 'ADM1_EN' in geojson properties
     fig = px.choropleth_mapbox(
         risk_df,
         geojson=ethiopia_geojson,
@@ -430,5 +409,32 @@ elif page == "🗺️ Ethiopia Risk Map":
         title="Food Security Risk Map of Ethiopia by Region"
     )
 
-    fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
+    fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0})
     st.plotly_chart(fig, use_container_width=True)
+
+# =====================================================
+# ABOUT PAGE
+# =====================================================
+
+elif page == "ℹ️ About":
+    st.title("ℹ️ About This Application")
+
+    st.markdown("""
+### Agricultural Early Warning System
+
+This application was built to help predict food security risk across Ethiopian regions using machine learning.
+
+**Models Used:**
+- 🌳 Random Forest
+- 🚀 XGBoost
+- 🧠 MLP (Multi-Layer Perceptron)
+
+**Explainability:**
+- 🔍 SHAP (SHapley Additive exPlanations) is used to explain individual and global predictions.
+
+**Data:**
+- Historical agricultural data including crop yield, production, and regional statistics for Ethiopia.
+
+**Version:** 1.0  
+**Country:** Ethiopia  
+""")
