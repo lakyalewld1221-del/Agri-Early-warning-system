@@ -63,7 +63,7 @@ def load_xgboost():
 
 @st.cache_resource
 def load_random_forest():
-    return joblib.load("random_forest_model.pkl")
+    return joblib.load("random_forest_model (1).pkl")
 
 @st.cache_resource
 def load_mlp_model():
