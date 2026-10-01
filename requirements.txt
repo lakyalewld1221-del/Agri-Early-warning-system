@@ -8,4 +8,4 @@ matplotlib
 plotly
 seaborn
 xgboost
-tensorflow
+tensorflow==2.18.0
