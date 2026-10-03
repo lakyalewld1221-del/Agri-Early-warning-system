@@ -1040,12 +1040,271 @@ elif page == "🗺️ Ethiopia Risk Map":
 
     # ── Legend ──────────────────────────────────────────────────────────────
     st.markdown("""
-    <div style='display:flex; gap:20px; margin-bottom:10px;'>
-        <span style='background:#28a745; color:white; padding:5px 14px; border-radius:8px; font-weight:700;'>🟢 Low Risk</span>
-        <span style='background:#fd7e14; color:white; padding:5px 14px; border-radius:8px; font-weight:700;'>🟡 Medium Risk</span>
-        <span style='background:#dc3545; color:white; padding:5px 14px; border-radius:8px; font-weight:700;'>🔴 High Risk</span>
+    <div style='display:flex; gap:20px; margin-bottom:16px;'>
+        <span style='background:#28a745;color:white;padding:6px 16px;border-radius:8px;font-weight:700;'>🟢 Low Risk</span>
+        <span style='background:#fd7e14;color:white;padding:6px 16px;border-radius:8px;font-weight:700;'>🟡 Medium Risk</span>
+        <span style='background:#dc3545;color:white;padding:6px 16px;border-radius:8px;font-weight:700;'>🔴 High Risk</span>
     </div>
     """, unsafe_allow_html=True)
+
+    # ── Ethiopian region centre coordinates ─────────────────────────────────
+    # 10 regions + 2 city administrations
+    REGION_COORDS = {
+        "Tigray":            (14.0323, 38.3142),
+        "Afar":              (11.7557, 40.9087),
+        "Amhara":            (11.3400, 37.9783),
+        "Oromia":            ( 7.5460, 40.6348),
+        "Somali":            ( 6.6613, 43.7908),
+        "Benishangul-Gumuz": (10.7795, 35.5657),
+        "SNNPR":             ( 6.5000, 37.5000),
+        "Gambela":           ( 7.9000, 34.5833),
+        "Harari":            ( 9.3147, 42.1184),
+        "Dire Dawa":         ( 9.5931, 41.8661),
+        "Addis Ababa":       ( 9.0200, 38.7468),
+        "Sidama":            ( 6.7792, 38.4521),
+    }
+
+    # Build a combined dataframe with risk info + coordinates
+    def get_region_coords(region_name):
+        # exact match first
+        if region_name in REGION_COORDS:
+            return REGION_COORDS[region_name]
+        # partial match
+        for key, coords in REGION_COORDS.items():
+            if key.lower() in region_name.lower() or region_name.lower() in key.lower():
+                return coords
+        return (9.145, 40.489)  # Ethiopia centre fallback
+
+    map_df = risk_df.copy()
+    map_df['lat'] = map_df['Region'].apply(lambda r: get_region_coords(r)[0])
+    map_df['lon'] = map_df['Region'].apply(lambda r: get_region_coords(r)[1])
+    map_df['color'] = map_df['Risk_Category'].map({
+        'Low Risk':    '#28a745',
+        'Medium Risk': '#fd7e14',
+        'High Risk':   '#dc3545'
+    }).fillna('#6c757d')
+    map_df['risk_code'] = map_df['Risk_Category'].apply(
+        lambda c: 0 if 'Low' in c else (1 if 'Medium' in c else 2)
+    )
+    map_df['size'] = 18  # marker size
+
+    # ── Full Ethiopia scatter map ────────────────────────────────────────────
+    st.subheader("🗺️ Ethiopia — Full Country Risk Map")
+
+    fig_main = px.scatter_geo(
+        map_df,
+        lat='lat', lon='lon',
+        color='Risk_Category',
+        color_discrete_map={
+            'Low Risk':    '#28a745',
+            'Medium Risk': '#fd7e14',
+            'High Risk':   '#dc3545'
+        },
+        size='size',
+        size_max=28,
+        hover_name='Region',
+        hover_data={'Risk_Category': True, 'Predicted_Risk': ':.2f',
+                    'lat': False, 'lon': False, 'size': False},
+        text='Region',
+        labels={'Risk_Category': 'Risk Level', 'Predicted_Risk': 'Risk Score'},
+        title="Ethiopia Food Security Risk — All Regions",
+    )
+
+    fig_main.update_traces(
+        textposition='top center',
+        textfont=dict(size=11, color='black'),
+        marker=dict(opacity=0.9, line=dict(width=1, color='white'))
+    )
+
+    fig_main.update_geos(
+        visible=True,
+        resolution=50,
+        scope="africa",
+        showcoastlines=True,  coastlinecolor="#888",
+        showland=True,        landcolor="#f5f4e8",
+        showocean=True,       oceancolor="#cce5ff",
+        showlakes=True,       lakecolor="#cce5ff",
+        showrivers=True,      rivercolor="#aad4f5",
+        showsubunits=True,    subunitcolor="#cccccc",
+        showcountries=True,   countrycolor="#999999",
+        lonaxis_range=[32.0, 48.5],
+        lataxis_range=[ 3.0, 15.5],
+    )
+
+    fig_main.update_layout(
+        margin={"r": 0, "t": 50, "l": 0, "b": 0},
+        height=600,
+        legend=dict(orientation="h", yanchor="bottom", y=0.01,
+                    xanchor="right", x=1),
+        geo=dict(bgcolor="rgba(0,0,0,0)"),
+    )
+
+    st.plotly_chart(fig_main, use_container_width=True)
+
+    st.markdown("---")
+
+    # ── Individual region cards (3 per row) ──────────────────────────────────
+    st.subheader("📍 Individual Region Risk Cards")
+
+    all_regions = sorted(map_df['Region'].unique())
+    cards_per_row = 3
+
+    for row_start in range(0, len(all_regions), cards_per_row):
+        cols = st.columns(cards_per_row)
+        for col_idx, col in enumerate(cols):
+            r_idx = row_start + col_idx
+            if r_idx >= len(all_regions):
+                break
+            reg = all_regions[r_idx]
+            row_data = map_df[map_df['Region'] == reg].iloc[0]
+            color     = row_data['color']
+            risk_cat  = row_data['Risk_Category']
+            risk_val  = row_data['Predicted_Risk']
+            risk_code_r = int(row_data['risk_code'])
+            lat, lon  = row_data['lat'], row_data['lon']
+
+            with col:
+                # Mini scatter map zoomed to this region
+                reg_df = pd.DataFrame({
+                    'Region':       [reg],
+                    'lat':          [lat],
+                    'lon':          [lon],
+                    'Risk_Category':[risk_cat],
+                    'size':         [20],
+                })
+
+                fig_mini = px.scatter_geo(
+                    reg_df,
+                    lat='lat', lon='lon',
+                    color='Risk_Category',
+                    color_discrete_map={
+                        'Low Risk':    '#28a745',
+                        'Medium Risk': '#fd7e14',
+                        'High Risk':   '#dc3545'
+                    },
+                    size='size', size_max=22,
+                    hover_name='Region',
+                    text='Region',
+                )
+                fig_mini.update_traces(
+                    textposition='top center',
+                    textfont=dict(size=10, color='black'),
+                    marker=dict(opacity=0.9, line=dict(width=1, color='white'))
+                )
+                fig_mini.update_geos(
+                    visible=True,
+                    resolution=50,
+                    scope="africa",
+                    showland=True,   landcolor="#f5f4e8",
+                    showocean=True,  oceancolor="#cce5ff",
+                    showcoastlines=True, coastlinecolor="#aaa",
+                    showcountries=True,  countrycolor="#bbb",
+                    lonaxis_range=[lon - 3, lon + 3],
+                    lataxis_range=[lat - 3, lat + 3],
+                )
+                fig_mini.update_layout(
+                    margin={"r": 0, "t": 0, "l": 0, "b": 0},
+                    height=180,
+                    showlegend=False,
+                    paper_bgcolor="rgba(0,0,0,0)",
+                )
+                st.plotly_chart(fig_mini, use_container_width=True,
+                                key=f"mini_{reg}")
+
+                # Risk badge
+                st.markdown(
+                    f"""<div style='background:{color};padding:8px;
+                    border-radius:8px;text-align:center;margin-top:-8px;'>
+                    <b style='color:white;font-size:13px;'>📍 {reg}</b><br>
+                    <span style='color:white;font-size:12px;'>{get_risk_label(risk_code_r)}</span><br>
+                    <span style='color:white;font-size:11px;'>Score: {risk_val:.2f}</span>
+                    </div>""",
+                    unsafe_allow_html=True
+                )
+                st.markdown(" ")
+
+    st.markdown("---")
+
+    # ── Highlight selected region ─────────────────────────────────────────────
+    if 'predicted' in st.session_state:
+        sel_region = st.session_state['region']
+        st.subheader(f"📌 Your Selected Region: {sel_region}")
+
+        sel_data = map_df[map_df['Region'] == sel_region]
+        if not sel_data.empty:
+            s         = sel_data.iloc[0]
+            color     = s['color']
+            risk_val  = s['Predicted_Risk']
+            risk_code_s = int(s['risk_code'])
+            s_lat, s_lon = s['lat'], s['lon']
+
+            hl1, hl2 = st.columns([1, 1])
+            with hl1:
+                sel_df = pd.DataFrame({
+                    'Region':       [sel_region],
+                    'lat':          [s_lat],
+                    'lon':          [s_lon],
+                    'Risk_Category':[s['Risk_Category']],
+                    'size':         [25],
+                })
+                fig_sel = px.scatter_geo(
+                    sel_df,
+                    lat='lat', lon='lon',
+                    color='Risk_Category',
+                    color_discrete_map={
+                        'Low Risk':    '#28a745',
+                        'Medium Risk': '#fd7e14',
+                        'High Risk':   '#dc3545'
+                    },
+                    size='size', size_max=30,
+                    hover_name='Region',
+                    text='Region',
+                )
+                fig_sel.update_traces(
+                    textposition='top center',
+                    textfont=dict(size=12, color='black'),
+                    marker=dict(opacity=1.0, line=dict(width=2, color='white'))
+                )
+                fig_sel.update_geos(
+                    visible=True,
+                    resolution=50,
+                    scope="africa",
+                    showland=True,      landcolor="#f5f4e8",
+                    showocean=True,     oceancolor="#cce5ff",
+                    showcoastlines=True, coastlinecolor="#aaa",
+                    showcountries=True,  countrycolor="#bbb",
+                    lonaxis_range=[s_lon - 4, s_lon + 4],
+                    lataxis_range=[s_lat - 4, s_lat + 4],
+                )
+                fig_sel.update_layout(
+                    margin={"r": 0, "t": 0, "l": 0, "b": 0},
+                    height=300, showlegend=False
+                )
+                st.plotly_chart(fig_sel, use_container_width=True,
+                                key="selected_region_highlight")
+
+            with hl2:
+                st.markdown(
+                    f"""<div style='background:{color};padding:35px;
+                    border-radius:14px;text-align:center;margin-top:20px;'>
+                    <h2 style='color:white;margin:0;'>📍 {sel_region}</h2>
+                    <h1 style='color:white;margin:12px 0 0 0;'>{get_risk_label(risk_code_s)}</h1>
+                    <p style='color:white;margin:8px 0 0 0;font-size:18px;'>
+                    Risk Score: {risk_val:.2f}</p>
+                    </div>""",
+                    unsafe_allow_html=True
+                )
+        else:
+            st.info(f"No risk data available for {sel_region}.")
+
+    st.markdown("---")
+    st.subheader("📋 All Regions Risk Table")
+    st.dataframe(
+        risk_df.sort_values("Predicted_Risk", ascending=False),
+        use_container_width=True
+    )
+
+
 
     # ── Full Ethiopia choropleth map ─────────────────────────────────────────
     st.subheader("🗺️ Ethiopia — Full Country Risk Map")
