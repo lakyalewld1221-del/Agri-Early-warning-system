@@ -227,6 +227,13 @@ def predict_risk(region, crop_type, year):
         'Early_Warning_Score'
     ])
 
+    # Clean input: replace inf/-inf with NaN, then fill NaN with global median
+    input_data = input_data.replace([np.inf, -np.inf], np.nan)
+    for col in input_data.columns:
+        if input_data[col].isnull().any():
+            global_median = df[col].replace([np.inf, -np.inf], np.nan).median()
+            input_data[col] = input_data[col].fillna(global_median if not np.isnan(global_median) else 0)
+
     xgb_pred = xgb_model.predict(input_data)[0]
     rf_pred  = rf_model.predict(input_data)[0]
 
