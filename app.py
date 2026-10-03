@@ -81,7 +81,8 @@ def load_random_forest():
 
 @st.cache_resource
 def load_mlp_model():
-    return joblib.load("mlp_model.pkl")
+    import tensorflow as tf
+    return tf.keras.models.load_model("mlp_model.keras")
 
 xgb_model = load_xgboost()
 rf_model = load_random_forest()
