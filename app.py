@@ -3,20 +3,6 @@
 # Explainable AI-Based Food Security Risk Mapping
 # =====================================================
 
-import subprocess
-import sys
-
-# Auto-install missing packages
-required_packages = [
-    "joblib", "shap", "matplotlib", "plotly", 
-    "seaborn", "xgboost", "scikit-learn"
-]
-for package in required_packages:
-    try:
-        __import__(package)
-    except ImportError:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", package])
-
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -82,15 +68,8 @@ def load_random_forest():
 xgb_model = load_xgboost()
 rf_model = load_random_forest()
 
-st.title("🌾 Agricultural Early Warning System")
-
-st.success("Application loaded successfully!")
-
-st.write("Dataset shape:", df.shape)
-st.write("Risk map shape:", risk_df.shape)
-
 # =====================================================
-# SIDEBAR
+# SIDEBAR - Navigation + Global Filters
 # =====================================================
 
 st.sidebar.title("🌾 Navigation")
@@ -108,12 +87,34 @@ page = st.sidebar.radio(
     )
 )
 
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 🔎 Global Filters")
+
+# --- Three main filters used across all pages ---
+selected_region = st.sidebar.selectbox(
+    "🌍 Region",
+    options=sorted(df["Region"].unique()),
+    index=0
+)
+
+selected_crop = st.sidebar.selectbox(
+    "🌾 Crop Type",
+    options=sorted(df["crop type"].unique()),
+    index=0
+)
+
+selected_year = st.sidebar.selectbox(
+    "📅 Year",
+    options=sorted(df["Year"].unique(), reverse=True),
+    index=0
+)
+
+st.sidebar.markdown("---")
 st.sidebar.info(
 """
 Agricultural Early Warning System
 
-This application predicts food security risk using:
-
+Predicts food security risk using:
 - 🌳 Random Forest
 - 🚀 XGBoost
 - 🔍 SHAP Explainability
@@ -122,7 +123,15 @@ Country: Ethiopia
 """
 )
 
-st.sidebar.markdown("---")
+# =====================================================
+# FILTER DATA BASED ON SIDEBAR SELECTIONS
+# =====================================================
+
+filtered_df = df[
+    (df["Region"] == selected_region) &
+    (df["crop type"] == selected_crop) &
+    (df["Year"] == selected_year)
+]
 
 # =====================================================
 # HOME PAGE
@@ -131,35 +140,39 @@ st.sidebar.markdown("---")
 if page == "🏠 Home":
 
     st.title("🌾 Agricultural Early Warning System")
-
-    st.subheader(
-        "Explainable AI-Based Food Security Risk Mapping for Ethiopia"
-    )
-
+    st.subheader("Explainable AI-Based Food Security Risk Mapping for Ethiopia")
     st.markdown("---")
 
     st.write("""
 Welcome to the Agricultural Early Warning System.
 
-This dashboard helps predict food security risk using machine learning and provides explainable predictions through SHAP.
+This dashboard helps predict food security risk using machine learning
+and provides explainable predictions through SHAP.
     """)
 
-    st.markdown("### Project Objectives")
+    st.markdown("### 🔎 Currently Selected Filters")
+    c1, c2, c3 = st.columns(3)
+    c1.info(f"🌍 Region: **{selected_region}**")
+    c2.info(f"🌾 Crop: **{selected_crop}**")
+    c3.info(f"📅 Year: **{selected_year}**")
 
+    st.markdown("---")
+    st.markdown("### 📊 Dataset Overview")
+
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Total Records", len(df))
+    col2.metric("Filtered Records", len(filtered_df))
+    col3.metric("Total Regions", df["Region"].nunique())
+    col4.metric("Crop Types", df["crop type"].nunique())
+
+    st.markdown("---")
+    st.markdown("### Project Objectives")
     st.markdown("""
 - Predict agricultural food security risk
 - Compare XGBoost and Random Forest models
 - Explain predictions using SHAP
 - Visualize regional food security risk across Ethiopia
 """)
-
-    st.markdown("---")
-
-    col1, col2, col3 = st.columns(3)
-
-    col1.metric("Records", len(df))
-    col2.metric("Regions", df["Region"].nunique())
-    col3.metric("Crop Types", df["crop type"].nunique())
 
 # =====================================================
 # DATASET PAGE
@@ -168,15 +181,19 @@ This dashboard helps predict food security risk using machine learning and provi
 elif page == "📂 Dataset":
 
     st.title("📂 Agricultural Dataset")
+    st.markdown(f"Showing data for **{selected_region}** | **{selected_crop}** | **{selected_year}**")
+    st.markdown("---")
 
-    st.write("Explore the agricultural dataset used for training the machine learning models.")
+    st.subheader("Filtered Dataset Preview")
+    if filtered_df.empty:
+        st.warning("No data found for the selected Region, Crop Type, and Year combination.")
+    else:
+        st.dataframe(filtered_df, use_container_width=True)
+        st.markdown(f"**{len(filtered_df)} records** found.")
 
-    st.subheader("Dataset Preview")
-
-    st.dataframe(
-        df.head(20),
-        use_container_width=True
-    )
+    st.markdown("---")
+    st.subheader("Full Dataset Preview")
+    st.dataframe(df.head(20), use_container_width=True)
 
     st.subheader("Dataset Description")
     st.write(df.describe().T)
@@ -193,48 +210,51 @@ elif page == "📂 Dataset":
 
 elif page == "🤖 Early Warning Prediction":
     st.title("🤖 Early Warning Prediction")
-    st.write("Input agricultural parameters to get a food security risk prediction.")
+    st.markdown(f"Predicting risk for **{selected_region}** | **{selected_crop}** | **{selected_year}**")
+    st.markdown("---")
 
-    # Re-initialize encoders with the full dataset for prediction consistency
+    # Encoders
     region_encoder = LabelEncoder()
     crop_encoder = LabelEncoder()
     region_encoder.fit(df['Region'].unique())
     crop_encoder.fit(df['crop type'].unique())
 
-    # Input form
+    # Encode the sidebar selections
+    region_code = region_encoder.transform([selected_region])[0]
+    crop_code = crop_encoder.transform([selected_crop])[0]
+
+    # Use median values from filtered data if available, else full dataset
+    base_df = filtered_df if not filtered_df.empty else df
+
+    st.subheader("📋 Auto-filled Features")
+    st.info("The features below are auto-filled from your selected Region, Crop Type and Year. You can adjust them if needed.")
+
     with st.form("prediction_form"):
-        st.header("Input Features")
 
-        # Categorical Inputs
-        region = st.selectbox("Region", df['Region'].unique())
-        crop_type = st.selectbox("Crop Type", df['crop type'].unique())
+        col1, col2 = st.columns(2)
 
-        # Numerical Inputs
-        year = st.number_input("Year", min_value=int(df['Year'].min()), max_value=int(df['Year'].max()), value=int(df['Year'].max()))
-        area_cultivated = st.number_input("Area cultivated(Ha)", min_value=0.0, value=float(df['Area cultivated(Ha)'].median()))
-        production_kg = st.number_input("Production(kg)", min_value=0.0, value=float(df['Production(kg)'].median()))
+        with col1:
+            area_cultivated = st.number_input("Area cultivated (Ha)", min_value=0.0, value=float(base_df['Area cultivated(Ha)'].median()))
+            production_kg = st.number_input("Production (kg)", min_value=0.0, value=float(base_df['Production(kg)'].median()))
+            yield_growth_rate = st.number_input("Yield Growth Rate", value=float(base_df['Yield_Growth_Rate'].median()))
+            production_growth_rate = st.number_input("Production Growth Rate", value=float(base_df['Production_Growth_Rate'].median()))
+            area_efficiency = st.number_input("Area Efficiency", value=float(base_df['Area_Efficiency'].median()))
+            regional_avg_yield = st.number_input("Regional Average Yield", value=float(base_df['Regional_Avg_Yield'].median()))
+            crop_avg_yield = st.number_input("Crop Average Yield", value=float(base_df['Crop_Avg_Yield'].median()))
 
-        yield_growth_rate = st.number_input("Yield Growth Rate", value=float(df['Yield_Growth_Rate'].median()))
-        production_growth_rate = st.number_input("Production Growth Rate", value=float(df['Production_Growth_Rate'].median()))
-        area_efficiency = st.number_input("Area Efficiency", value=float(df['Area_Efficiency'].median()))
-        regional_avg_yield = st.number_input("Regional Average Yield", value=float(df['Regional_Avg_Yield'].median()))
-        crop_avg_yield = st.number_input("Crop Average Yield", value=float(df['Crop_Avg_Yield'].median()))
-        yield_anomaly = st.number_input("Yield Anomaly", value=float(df['Yield_Anomaly'].median()))
-        rolling_yield_trend = st.number_input("Rolling Yield Trend", value=float(df['Rolling_Yield_Trend'].median()))
-        yield_stability = st.number_input("Yield Stability", value=float(df['Yield_Stability'].median()))
-        production_area_ratio = st.number_input("Production Area Ratio", value=float(df['Production_Area_Ratio'].median()))
-        early_warning_score = st.number_input("Early Warning Score", value=float(df['Early_Warning_Score'].median()))
+        with col2:
+            yield_anomaly = st.number_input("Yield Anomaly", value=float(base_df['Yield_Anomaly'].median()))
+            rolling_yield_trend = st.number_input("Rolling Yield Trend", value=float(base_df['Rolling_Yield_Trend'].median()))
+            yield_stability = st.number_input("Yield Stability", value=float(base_df['Yield_Stability'].median()))
+            production_area_ratio = st.number_input("Production Area Ratio", value=float(base_df['Production_Area_Ratio'].median()))
+            early_warning_score = st.number_input("Early Warning Score", value=float(base_df['Early_Warning_Score'].median()))
 
-        submitted = st.form_submit_button("Predict Risk")
+        submitted = st.form_submit_button("🔍 Predict Risk")
 
     if submitted:
-        # Encode categorical inputs
-        region_code = region_encoder.transform([region])[0]
-        crop_code = crop_encoder.transform([crop_type])[0]
-
-        # Create a DataFrame for prediction
         input_data = pd.DataFrame([[
-            region_code, crop_code, year, area_cultivated, production_kg,
+            region_code, crop_code, selected_year,
+            area_cultivated, production_kg,
             yield_growth_rate, production_growth_rate, area_efficiency,
             regional_avg_yield, crop_avg_yield, yield_anomaly,
             rolling_yield_trend, yield_stability, production_area_ratio,
@@ -247,30 +267,39 @@ elif page == "🤖 Early Warning Prediction":
             'Early_Warning_Score'
         ])
 
-        prediction = xgb_model.predict(input_data)[0]
+        risk_names = {0: "Low Risk", 1: "Medium Risk", 2: "High Risk"}
+        colors = {0: "green", 1: "orange", 2: "red"}
 
-        def map_risk_to_name(risk_level):
-            risk_names = {0: "Low Risk", 1: "Medium Risk", 2: "High Risk"}
-            return risk_names.get(risk_level, "Unknown Risk")
+        # XGBoost prediction
+        xgb_pred = xgb_model.predict(input_data)[0]
+        xgb_risk = risk_names.get(xgb_pred, "Unknown")
+        xgb_color = colors.get(xgb_pred, "gray")
 
-        def assign_color(risk_level):
-            if risk_level == 0:
-                return "Green"
-            elif risk_level == 1:
-                return "Yellow"
-            else:
-                return "Red"
+        # Random Forest prediction
+        rf_pred = rf_model.predict(input_data)[0]
+        rf_risk = risk_names.get(rf_pred, "Unknown")
+        rf_color = colors.get(rf_pred, "gray")
 
-        risk_name = map_risk_to_name(prediction)
-        alert_color = assign_color(prediction)
+        st.markdown("---")
+        st.subheader("🎯 Prediction Results")
 
-        st.subheader("Prediction Result:")
-        st.markdown(
-            f"<div style='background-color:{alert_color.lower()}; padding: 10px; border-radius: 5px;'>"
-            f"<h4>Predicted Risk: {risk_name}</h4>"
-            f"</div>",
-            unsafe_allow_html=True
-        )
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown(
+                f"<div style='background-color:{xgb_color}; padding:20px; border-radius:10px; text-align:center;'>"
+                f"<h3 style='color:white;'>🚀 XGBoost</h3>"
+                f"<h2 style='color:white;'>{xgb_risk}</h2>"
+                f"</div>",
+                unsafe_allow_html=True
+            )
+        with col2:
+            st.markdown(
+                f"<div style='background-color:{rf_color}; padding:20px; border-radius:10px; text-align:center;'>"
+                f"<h3 style='color:white;'>🌳 Random Forest</h3>"
+                f"<h2 style='color:white;'>{rf_risk}</h2>"
+                f"</div>",
+                unsafe_allow_html=True
+            )
 
 # =====================================================
 # EXPLAINABLE AI PAGE
@@ -278,10 +307,10 @@ elif page == "🤖 Early Warning Prediction":
 
 elif page == "🔍 Explainable AI":
     st.title("🔍 Explainable AI (SHAP)")
-    st.write("Understand the factors driving the food security risk predictions.")
+    st.markdown(f"Showing SHAP explanations for **{selected_region}** | **{selected_crop}** | **{selected_year}**")
+    st.markdown("---")
 
     st.subheader("Global Feature Importance")
-    st.markdown("This plot shows the overall importance of each feature across the entire dataset.")
 
     if len(X_test) > 1000:
         sample_X_test = X_test.sample(1000, random_state=42)
@@ -297,37 +326,36 @@ elif page == "🔍 Explainable AI":
     plt.close(fig)
 
     st.markdown("---")
-
     st.subheader("Individual Prediction Explanation")
-    st.markdown("Select an instance to see how each feature contributes to its specific risk prediction.")
 
     instance_index = st.number_input(
-        "Select an instance index from the test set (0 to {})".format(len(X_test) - 1),
+        "Select an instance index (0 to {})".format(len(X_test) - 1),
         min_value=0, max_value=len(X_test) - 1, value=0, step=1
     )
 
-    if instance_index is not None:
-        selected_instance = X_test.iloc[[instance_index]]
-        selected_shap_values = explainer.shap_values(selected_instance)
+    selected_instance = X_test.iloc[[instance_index]]
+    selected_shap_values = explainer.shap_values(selected_instance)
 
-        st.write(f"Showing explanation for instance {instance_index}:")
+    predicted_risk_level = xgb_model.predict(selected_instance)[0]
+    risk_names = {0: "Low Risk", 1: "Medium Risk", 2: "High Risk"}
+    st.write(f"Predicted Risk: **{risk_names.get(predicted_risk_level, 'Unknown')}** (Level {predicted_risk_level})")
 
-        predicted_risk_level = xgb_model.predict(selected_instance)[0]
-        risk_names = {0: "Low Risk", 1: "Medium Risk", 2: "High Risk"}
-        predicted_risk_name = risk_names.get(predicted_risk_level, "Unknown Risk")
-        st.write(f"Predicted Risk: **{predicted_risk_name}** (Level {predicted_risk_level})")
+    if isinstance(explainer.expected_value, list):
+        expected_value_for_plot = explainer.expected_value[predicted_risk_level]
+        shap_values_for_plot = selected_shap_values[predicted_risk_level]
+    else:
+        expected_value_for_plot = explainer.expected_value
+        shap_values_for_plot = selected_shap_values[0]
 
-        if isinstance(explainer.expected_value, list):
-            expected_value_for_plot = explainer.expected_value[predicted_risk_level]
-            shap_values_for_plot = selected_shap_values[predicted_risk_level]
-        else:
-            expected_value_for_plot = explainer.expected_value
-            shap_values_for_plot = selected_shap_values[0]
-
-        st.set_option('deprecation.showPyplotGlobalUse', False)
-        shap.force_plot(expected_value_for_plot, shap_values_for_plot, selected_instance)
-        st.pyplot(bbox_inches='tight')
-        st.set_option('deprecation.showPyplotGlobalUse', True)
+    fig2, ax2 = plt.subplots()
+    shap.waterfall_plot(shap.Explanation(
+        values=shap_values_for_plot[0],
+        base_values=expected_value_for_plot,
+        data=selected_instance.iloc[0],
+        feature_names=X_test.columns.tolist()
+    ), show=False)
+    st.pyplot(fig2)
+    plt.close(fig2)
 
 # =====================================================
 # RISK ANALYSIS PAGE
@@ -335,11 +363,11 @@ elif page == "🔍 Explainable AI":
 
 elif page == "📊 Risk Analysis":
     st.title("📊 Food Security Risk Analysis")
-    st.write("Detailed analysis and visualization of food security risk.")
+    st.markdown(f"Analysis for **{selected_region}** | **{selected_crop}** | **{selected_year}**")
+    st.markdown("---")
 
     st.subheader("Regional Risk Summary")
-    st.write("Average predicted risk and categories by region.")
-    st.dataframe(risk_df)
+    st.dataframe(risk_df, use_container_width=True)
 
     st.subheader("Average Risk Score by Region")
     fig = px.bar(
@@ -347,50 +375,49 @@ elif page == "📊 Risk Analysis":
         x='Region',
         y='Predicted_Risk',
         color='Risk_Category',
-        color_discrete_map={'Low Risk': 'green', 'Medium Risk': 'yellow', 'High Risk': 'red'},
+        color_discrete_map={'Low Risk': 'green', 'Medium Risk': 'orange', 'High Risk': 'red'},
         title='Average Food Security Risk by Region'
     )
     st.plotly_chart(fig, use_container_width=True)
 
-    st.subheader("Regional Food Security Risk Trend Over Time")
-    st.write("This heatmap shows the average predicted risk for each region across different years.")
-
-    temp_df = df.copy()
-    model_features = [
-        'Region_Code', 'Crop_Code', 'Year', 'Area cultivated(Ha)', 'Production(kg)',
-        'Yield_Growth_Rate', 'Production_Growth_Rate', 'Area_Efficiency',
-        'Regional_Avg_Yield', 'Crop_Avg_Yield', 'Yield_Anomaly',
-        'Rolling_Yield_Trend', 'Yield_Stability', 'Production_Area_Ratio',
-        'Early_Warning_Score'
+    st.subheader("Risk Trend for Selected Region Over Years")
+    region_trend = df[
+        (df["Region"] == selected_region) &
+        (df["crop type"] == selected_crop)
     ]
 
-    temp_df[model_features] = temp_df[model_features].replace([np.inf, -np.inf], np.nan)
-    for col in model_features:
-        if temp_df[col].isnull().any():
-            temp_df[col] = temp_df[col].fillna(temp_df[col].median())
+    if not region_trend.empty:
+        model_features = [
+            'Region_Code', 'Crop_Code', 'Year', 'Area cultivated(Ha)', 'Production(kg)',
+            'Yield_Growth_Rate', 'Production_Growth_Rate', 'Area_Efficiency',
+            'Regional_Avg_Yield', 'Crop_Avg_Yield', 'Yield_Anomaly',
+            'Rolling_Yield_Trend', 'Yield_Stability', 'Production_Area_Ratio',
+            'Early_Warning_Score'
+        ]
+        region_trend = region_trend.copy()
+        region_trend[model_features] = region_trend[model_features].replace([np.inf, -np.inf], np.nan)
+        for col in model_features:
+            if region_trend[col].isnull().any():
+                region_trend[col] = region_trend[col].fillna(region_trend[col].median())
 
-    temp_df['Predicted_Risk'] = xgb_model.predict(temp_df[model_features])
-
-    pivot_table = temp_df.pivot_table(
-        values='Predicted_Risk',
-        index='Region',
-        columns='Year',
-        aggfunc='mean'
-    )
-
-    plt.figure(figsize=(15, 8))
-    sns.heatmap(pivot_table, annot=False, cmap='YlOrRd')
-    plt.title("Regional Food Security Risk Trend")
-    plt.xlabel("Year")
-    plt.ylabel("Region")
-    st.pyplot(plt)
+        region_trend['Predicted_Risk'] = xgb_model.predict(region_trend[model_features])
+        fig2 = px.line(
+            region_trend,
+            x='Year',
+            y='Predicted_Risk',
+            title=f"Risk Trend for {selected_region} - {selected_crop}",
+            markers=True
+        )
+        st.plotly_chart(fig2, use_container_width=True)
+    else:
+        st.warning("No data available for this Region and Crop Type combination.")
 
     st.subheader("High Risk Regions")
     high_risk_regions = risk_df[risk_df['Risk_Category'] == 'High Risk']
     if not high_risk_regions.empty:
-        st.dataframe(high_risk_regions)
+        st.dataframe(high_risk_regions, use_container_width=True)
     else:
-        st.info("No regions currently categorized as 'High Risk' based on the defined thresholds.")
+        st.info("No regions currently categorized as High Risk.")
 
 # =====================================================
 # ETHIOPIA RISK MAP PAGE
@@ -398,7 +425,8 @@ elif page == "📊 Risk Analysis":
 
 elif page == "🗺️ Ethiopia Risk Map":
     st.title("🗺️ Ethiopia Food Security Risk Map")
-    st.write("Geographical visualization of food security risk across Ethiopian regions.")
+    st.markdown(f"Showing risk map | Selected Region: **{selected_region}** | Year: **{selected_year}**")
+    st.markdown("---")
 
     fig = px.choropleth_mapbox(
         risk_df,
@@ -408,7 +436,7 @@ elif page == "🗺️ Ethiopia Risk Map":
         color='Risk_Category',
         color_discrete_map={
             'Low Risk': 'green',
-            'Medium Risk': 'yellow',
+            'Medium Risk': 'orange',
             'High Risk': 'red'
         },
         mapbox_style="carto-positron",
@@ -417,7 +445,6 @@ elif page == "🗺️ Ethiopia Risk Map":
         opacity=0.7,
         title="Food Security Risk Map of Ethiopia by Region"
     )
-
     fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0})
     st.plotly_chart(fig, use_container_width=True)
 
@@ -431,19 +458,23 @@ elif page == "ℹ️ About":
     st.markdown("""
 ### Agricultural Early Warning System
 
-This application was built to help predict food security risk across Ethiopian regions using machine learning.
+This application predicts food security risk across Ethiopian regions using machine learning.
 
 **Models Used:**
 - 🌳 Random Forest
 - 🚀 XGBoost
-- 🧠 MLP (Multi-Layer Perceptron)
 
 **Explainability:**
-- 🔍 SHAP (SHapley Additive exPlanations) is used to explain individual and global predictions.
+- 🔍 SHAP (SHapley Additive exPlanations)
+
+**Key Inputs:**
+- 🌍 Region
+- 🌾 Crop Type
+- 📅 Year
 
 **Data:**
 - Historical agricultural data including crop yield, production, and regional statistics for Ethiopia.
 
-**Version:** 1.0  
-**Country:** Ethiopia  
+**Version:** 1.0
+**Country:** Ethiopia
 """)
