@@ -115,25 +115,28 @@ DEFAULT_CROP_IMAGE = "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/
 
 CROP_LAND_IMAGES = {
     "Maize":        "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9d/Cornfield_banner.jpg/320px-Cornfield_banner.jpg",
-    "Wheat":        "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/24701-nature-natural-beauty.jpg/320px-24701-nature-natural-beauty.jpg",
-    "Teff":         "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/Teff_field_Ethiopia.jpg/320px-Teff_field_Ethiopia.jpg",
-    "Sorghum":      "https://upload.wikimedia.org/wikipedia/commons/thumb/6/68/Sorghum_field.jpg/320px-Sorghum_field.jpg",
-    "Barley":       "https://upload.wikimedia.org/wikipedia/commons/thumb/2/27/Barley_field_at_sunset.jpg/320px-Barley_field_at_sunset.jpg",
-    "Coffee":       "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Roasted_coffee_beans.jpg/320px-Roasted_coffee_beans.jpg",
-    "Sesame":       "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e6/Sesamum_indicum_2.jpg/320px-Sesamum_indicum_2.jpg",
-    "Chickpea":     "https://upload.wikimedia.org/wikipedia/commons/thumb/7/76/Chickpea_crop.jpg/320px-Chickpea_crop.jpg",
-    "Millet":       "https://upload.wikimedia.org/wikipedia/commons/thumb/2/21/Panicum_miliaceum_USDA.jpg/320px-Panicum_miliaceum_USDA.jpg",
-    "Bean":         "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/Haricot_beans.jpg/320px-Haricot_beans.jpg",
-    "Lentil":       "https://upload.wikimedia.org/wikipedia/commons/thumb/6/62/Lens_culinaris.jpg/320px-Lens_culinaris.jpg",
-    "Sunflower":    "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b3/Sunflower_field_banner.jpg/320px-Sunflower_field_banner.jpg",
-    "Potato":       "https://upload.wikimedia.org/wikipedia/commons/thumb/8/88/Potato_field.jpg/320px-Potato_field.jpg",
-    "Sweet Potato": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/58/Ipomoea_batatas_006.jpg/320px-Ipomoea_batatas_006.jpg",
-    "Rice":         "https://upload.wikimedia.org/wikipedia/commons/thumb/7/72/Rice_field.jpg/320px-Rice_field.jpg",
-    "Cassava":      "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2d/Cassava_farm.jpg/320px-Cassava_farm.jpg",
-    "Groundnut":    "https://upload.wikimedia.org/wikipedia/commons/thumb/0/00/Peanut_cluster_2.jpg/320px-Peanut_cluster_2.jpg",
-    "Enset":        "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c0/Enset_2.jpg/320px-Enset_2.jpg",
-    "Sugar Cane":   "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5f/Sugarcane_field.jpg/320px-Sugarcane_field.jpg",
-    "Cotton":       "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f3/Cotton_plant.jpg/320px-Cotton_plant.jpg",
+    "Wheat":        "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7c/Wheat_field_in_Dorset%2C_England_-_July_2009.jpg/640px-Wheat_field_in_Dorset%2C_England_-_July_2009.jpg",
+    "Teff":         "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/Teff_field_Ethiopia.jpg/640px-Teff_field_Ethiopia.jpg",
+    "Sorghum":      "https://upload.wikimedia.org/wikipedia/commons/thumb/3/34/Sorghum_crop_Andhra_Pradesh_India.jpg/640px-Sorghum_crop_Andhra_Pradesh_India.jpg",
+    "Barley":       "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5d/Barley_field.jpg/640px-Barley_field.jpg",
+    "Coffee":       "https://upload.wikimedia.org/wikipedia/commons/thumb/2/21/Coffee_berries_coffee_berries_on_a_branch.jpg/640px-Coffee_berries_coffee_berries_on_a_branch.jpg",
+    "Sesame":       "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e6/Sesamum_indicum_2.jpg/640px-Sesamum_indicum_2.jpg",
+    "Chickpea":     "https://upload.wikimedia.org/wikipedia/commons/thumb/7/76/Chickpea_crop.jpg/640px-Chickpea_crop.jpg",
+    "Millet":       "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0b/Millet_field.jpg/640px-Millet_field.jpg",
+    "Bean":         "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/Haricot_beans.jpg/640px-Haricot_beans.jpg",
+    "Lentil":       "https://upload.wikimedia.org/wikipedia/commons/thumb/6/62/Lens_culinaris.jpg/640px-Lens_culinaris.jpg",
+    "Sunflower":    "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b3/Sunflower_field_1.jpg/640px-Sunflower_field_1.jpg",
+    "Potato":       "https://upload.wikimedia.org/wikipedia/commons/thumb/8/88/Potato_field.jpg/640px-Potato_field.jpg",
+    "Sweet Potato": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/58/Ipomoea_batatas_006.jpg/640px-Ipomoea_batatas_006.jpg",
+    "Rice":         "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Ricefarm.jpg/640px-Ricefarm.jpg",
+    "Cassava":      "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d5/Cassava_plantation.jpg/640px-Cassava_plantation.jpg",
+    "Groundnut":    "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/Peanut_field.jpg/640px-Peanut_field.jpg",
+    "Enset":        "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c0/Enset_2.jpg/640px-Enset_2.jpg",
+    "Sugar Cane":   "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6d/Sugarcane_field.jpg/640px-Sugarcane_field.jpg",
+    "Cotton":       "https://upload.wikimedia.org/wikipedia/commons/thumb/1/18/Cotton_field_California.jpg/640px-Cotton_field_California.jpg",
+    "Faba Bean":    "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a1/Broad_bean_field.jpg/640px-Broad_bean_field.jpg",
+    "Oat":          "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e4/Avena_sativa_-_K%C3%B6hler%E2%80%93s_Medizinal-Pflanzen-016.jpg/640px-Avena_sativa_-_K%C3%B6hler%E2%80%93s_Medizinal-Pflanzen-016.jpg",
+    "Pea":          "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6d/Pea_field.jpg/640px-Pea_field.jpg",
 }
 
 DEFAULT_LAND_IMAGE = "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Farmland_at_sunset.jpg/320px-Farmland_at_sunset.jpg"
@@ -749,7 +752,7 @@ elif page == "🤖 Prediction":
         st.image(crop_img_url, caption=f"🌾 {selected_crop}", use_container_width=True)
     with land_col:
         land_img_url = get_crop_land_image(selected_crop)
-        st.image(land_img_url, caption=f"🌍 {selected_crop} Farmland", use_container_width=True)
+        st.image(land_img_url, caption=f"🌱 {selected_crop} Field (Acres)", use_container_width=True)
     with info_col:
         st.markdown(f"### Selected Input")
         st.markdown(f"- 🌍 **Region:** {selected_region}")
@@ -800,7 +803,7 @@ elif page == "🤖 Prediction":
         with res_land_col:
             st.image(
                 get_crop_land_image(selected_crop),
-                caption=f"🌍 {selected_crop} Farmland",
+                caption=f"🌱 {selected_crop} Field (Acres)",
                 use_container_width=True
             )
 
