@@ -94,6 +94,17 @@ CROP_IMAGES = {
     "Bean":         "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/Haricot_beans.jpg/320px-Haricot_beans.jpg",
     "Lentil":       "https://upload.wikimedia.org/wikipedia/commons/thumb/6/62/Lens_culinaris.jpg/320px-Lens_culinaris.jpg",
     "Sunflower":    "https://upload.wikimedia.org/wikipedia/commons/thumb/4/40/Sunflower_sky_backdrop.jpg/320px-Sunflower_sky_backdrop.jpg",
+    "Potato":       "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Potato_and_cross_section.jpg/320px-Potato_and_cross_section.jpg",
+    "Sweet Potato": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/58/Ipomoea_batatas_006.jpg/320px-Ipomoea_batatas_006.jpg",
+    "Rice":         "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/White_rice.jpg/320px-White_rice.jpg",
+    "Cassava":      "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a9/Manihot_esculenta_-_K%C3%B6hler%E2%80%93s_Medizinal-Pflanzen-090.jpg/320px-Manihot_esculenta_-_K%C3%B6hler%E2%80%93s_Medizinal-Pflanzen-090.jpg",
+    "Groundnut":    "https://upload.wikimedia.org/wikipedia/commons/thumb/0/00/Peanut_cluster_2.jpg/320px-Peanut_cluster_2.jpg",
+    "Pea":          "https://upload.wikimedia.org/wikipedia/commons/thumb/4/40/Peas_in_pods_-_Studio.jpg/320px-Peas_in_pods_-_Studio.jpg",
+    "Faba Bean":    "https://upload.wikimedia.org/wikipedia/commons/thumb/4/forty/Vicia_faba_habito.jpg/320px-Vicia_faba_habito.jpg",
+    "Oat":          "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e4/Avena_sativa_-_Köhler–s_Medizinal-Pflanzen-016.jpg/320px-Avena_sativa_-_Köhler–s_Medizinal-Pflanzen-016.jpg",
+    "Enset":        "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c0/Enset_2.jpg/320px-Enset_2.jpg",
+    "Sugar Cane":   "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5f/Sugarcane_field.jpg/320px-Sugarcane_field.jpg",
+    "Cotton":       "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f3/Cotton_plant.jpg/320px-Cotton_plant.jpg",
 }
 
 DEFAULT_CROP_IMAGE = "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Farmland_at_sunset.jpg/320px-Farmland_at_sunset.jpg"
@@ -356,27 +367,37 @@ elif page == "🤖 Prediction":
         st.markdown(f"**Region:** {selected_region} | **Crop:** {selected_crop} | **Year:** {selected_year}")
         st.markdown("---")
 
-        col1, col2 = st.columns(2)
-        with col1:
-            xgb_color = get_risk_color(xgb_pred)
-            st.markdown(
-                f"""<div style='background-color:{xgb_color}; padding:30px;
-                border-radius:12px; text-align:center;'>
-                <h2 style='color:white; margin:0;'>🚀 XGBoost</h2>
-                <h1 style='color:white; margin:10px 0 0 0;'>{get_risk_label(xgb_pred)}</h1>
-                </div>""",
-                unsafe_allow_html=True
+        # Show crop image in results
+        res_img_col, res_results_col = st.columns([1, 3])
+        with res_img_col:
+            st.image(
+                get_crop_image(selected_crop),
+                caption=f"🌾 {selected_crop}",
+                use_container_width=True
             )
-        with col2:
-            rf_color = get_risk_color(rf_pred)
-            st.markdown(
-                f"""<div style='background-color:{rf_color}; padding:30px;
-                border-radius:12px; text-align:center;'>
-                <h2 style='color:white; margin:0;'>🌳 Random Forest</h2>
-                <h1 style='color:white; margin:10px 0 0 0;'>{get_risk_label(rf_pred)}</h1>
-                </div>""",
-                unsafe_allow_html=True
-            )
+
+        with res_results_col:
+            col1, col2 = st.columns(2)
+            with col1:
+                xgb_color = get_risk_color(xgb_pred)
+                st.markdown(
+                    f"""<div style='background-color:{xgb_color}; padding:30px;
+                    border-radius:12px; text-align:center;'>
+                    <h2 style='color:white; margin:0;'>🚀 XGBoost</h2>
+                    <h1 style='color:white; margin:10px 0 0 0;'>{get_risk_label(xgb_pred)}</h1>
+                    </div>""",
+                    unsafe_allow_html=True
+                )
+            with col2:
+                rf_color = get_risk_color(rf_pred)
+                st.markdown(
+                    f"""<div style='background-color:{rf_color}; padding:30px;
+                    border-radius:12px; text-align:center;'>
+                    <h2 style='color:white; margin:0;'>🌳 Random Forest</h2>
+                    <h1 style='color:white; margin:10px 0 0 0;'>{get_risk_label(rf_pred)}</h1>
+                    </div>""",
+                    unsafe_allow_html=True
+                )
 
         st.markdown("---")
         if xgb_pred == rf_pred:
