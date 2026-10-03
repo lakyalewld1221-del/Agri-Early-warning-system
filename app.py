@@ -109,6 +109,43 @@ CROP_IMAGES = {
 
 DEFAULT_CROP_IMAGE = "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Farmland_at_sunset.jpg/320px-Farmland_at_sunset.jpg"
 
+# =====================================================
+# CROP LAND/ACRES IMAGES
+# =====================================================
+
+CROP_LAND_IMAGES = {
+    "Maize":        "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9d/Cornfield_banner.jpg/320px-Cornfield_banner.jpg",
+    "Wheat":        "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/24701-nature-natural-beauty.jpg/320px-24701-nature-natural-beauty.jpg",
+    "Teff":         "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/Teff_field_Ethiopia.jpg/320px-Teff_field_Ethiopia.jpg",
+    "Sorghum":      "https://upload.wikimedia.org/wikipedia/commons/thumb/6/68/Sorghum_field.jpg/320px-Sorghum_field.jpg",
+    "Barley":       "https://upload.wikimedia.org/wikipedia/commons/thumb/2/27/Barley_field_at_sunset.jpg/320px-Barley_field_at_sunset.jpg",
+    "Coffee":       "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Roasted_coffee_beans.jpg/320px-Roasted_coffee_beans.jpg",
+    "Sesame":       "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e6/Sesamum_indicum_2.jpg/320px-Sesamum_indicum_2.jpg",
+    "Chickpea":     "https://upload.wikimedia.org/wikipedia/commons/thumb/7/76/Chickpea_crop.jpg/320px-Chickpea_crop.jpg",
+    "Millet":       "https://upload.wikimedia.org/wikipedia/commons/thumb/2/21/Panicum_miliaceum_USDA.jpg/320px-Panicum_miliaceum_USDA.jpg",
+    "Bean":         "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/Haricot_beans.jpg/320px-Haricot_beans.jpg",
+    "Lentil":       "https://upload.wikimedia.org/wikipedia/commons/thumb/6/62/Lens_culinaris.jpg/320px-Lens_culinaris.jpg",
+    "Sunflower":    "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b3/Sunflower_field_banner.jpg/320px-Sunflower_field_banner.jpg",
+    "Potato":       "https://upload.wikimedia.org/wikipedia/commons/thumb/8/88/Potato_field.jpg/320px-Potato_field.jpg",
+    "Sweet Potato": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/58/Ipomoea_batatas_006.jpg/320px-Ipomoea_batatas_006.jpg",
+    "Rice":         "https://upload.wikimedia.org/wikipedia/commons/thumb/7/72/Rice_field.jpg/320px-Rice_field.jpg",
+    "Cassava":      "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2d/Cassava_farm.jpg/320px-Cassava_farm.jpg",
+    "Groundnut":    "https://upload.wikimedia.org/wikipedia/commons/thumb/0/00/Peanut_cluster_2.jpg/320px-Peanut_cluster_2.jpg",
+    "Enset":        "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c0/Enset_2.jpg/320px-Enset_2.jpg",
+    "Sugar Cane":   "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5f/Sugarcane_field.jpg/320px-Sugarcane_field.jpg",
+    "Cotton":       "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f3/Cotton_plant.jpg/320px-Cotton_plant.jpg",
+}
+
+DEFAULT_LAND_IMAGE = "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Farmland_at_sunset.jpg/320px-Farmland_at_sunset.jpg"
+
+def get_crop_land_image(crop_name):
+    if crop_name in CROP_LAND_IMAGES:
+        return CROP_LAND_IMAGES[crop_name]
+    for key in CROP_LAND_IMAGES:
+        if key.lower() in crop_name.lower() or crop_name.lower() in key.lower():
+            return CROP_LAND_IMAGES[key]
+    return DEFAULT_LAND_IMAGE
+
 def get_crop_image(crop_name):
     # Try exact match first, then partial match
     if crop_name in CROP_IMAGES:
@@ -704,12 +741,15 @@ elif page == "🤖 Prediction":
     with col3:
         selected_year = st.selectbox("📅 Year", options=sorted(df["Year"].unique(), reverse=True))
 
-    # Show crop image immediately when crop is selected
+    # Show crop image and land image when crop is selected
     st.markdown("---")
-    img_col, info_col = st.columns([1, 2])
+    img_col, land_col, info_col = st.columns([1, 1, 2])
     with img_col:
         crop_img_url = get_crop_image(selected_crop)
         st.image(crop_img_url, caption=f"🌾 {selected_crop}", use_container_width=True)
+    with land_col:
+        land_img_url = get_crop_land_image(selected_crop)
+        st.image(land_img_url, caption=f"🌍 {selected_crop} Farmland", use_container_width=True)
     with info_col:
         st.markdown(f"### Selected Input")
         st.markdown(f"- 🌍 **Region:** {selected_region}")
@@ -717,9 +757,17 @@ elif page == "🤖 Prediction":
         st.markdown(f"- 📅 **Year:** {selected_year}")
         crop_data = df[df["crop type"] == selected_crop]
         if not crop_data.empty:
+            region_crop_data = df[
+                (df["crop type"] == selected_crop) &
+                (df["Region"] == selected_region)
+            ]
+            avg_area = region_crop_data['Area cultivated(Ha)'].mean() if not region_crop_data.empty else crop_data['Area cultivated(Ha)'].mean()
+            avg_prod = region_crop_data['Production(kg)'].mean() if not region_crop_data.empty else crop_data['Production(kg)'].mean()
             st.markdown(f"- 📋 **Records for this crop:** {len(crop_data)}")
             st.markdown(f"- 📅 **Years available:** {int(crop_data['Year'].min())} – {int(crop_data['Year'].max())}")
             st.markdown(f"- 🌍 **Regions with this crop:** {crop_data['Region'].nunique()}")
+            st.markdown(f"- 🌱 **Avg Area Cultivated:** {avg_area:,.1f} Ha")
+            st.markdown(f"- 📦 **Avg Production:** {avg_prod:,.1f} kg")
 
     st.markdown("---")
 
@@ -741,12 +789,18 @@ elif page == "🤖 Prediction":
         st.markdown(f"**Region:** {selected_region} | **Crop:** {selected_crop} | **Year:** {selected_year}")
         st.markdown("---")
 
-        # Show crop image in results
-        res_img_col, res_results_col = st.columns([1, 3])
+        # Show crop image and land image in results
+        res_img_col, res_land_col, res_results_col = st.columns([1, 1, 2])
         with res_img_col:
             st.image(
                 get_crop_image(selected_crop),
                 caption=f"🌾 {selected_crop}",
+                use_container_width=True
+            )
+        with res_land_col:
+            st.image(
+                get_crop_land_image(selected_crop),
+                caption=f"🌍 {selected_crop} Farmland",
                 use_container_width=True
             )
 
