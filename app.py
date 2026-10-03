@@ -1079,7 +1079,6 @@ elif page == "🗺️ Ethiopia Risk Map":
         lakecolor="#cce5ff",
         showrivers=True,
         rivercolor="#aad4f5",
-        showborder=True,
     )
     fig_ethiopia.update_layout(
         margin={"r": 0, "t": 50, "l": 0, "b": 0},
