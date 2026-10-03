@@ -3,6 +3,20 @@
 # Explainable AI-Based Food Security Risk Mapping
 # =====================================================
 
+import subprocess
+import sys
+
+# Auto-install missing packages
+required_packages = [
+    "joblib", "shap", "matplotlib", "plotly", 
+    "seaborn", "xgboost", "scikit-learn"
+]
+for package in required_packages:
+    try:
+        __import__(package)
+    except ImportError:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+
 import streamlit as st
 import pandas as pd
 import numpy as np
