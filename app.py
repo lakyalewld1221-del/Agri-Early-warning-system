@@ -481,7 +481,7 @@ elif page == "🗺️ Ethiopia Risk Map":
     if 'predicted' in st.session_state:
         st.markdown(f"Selected: **{st.session_state['region']}** | **{st.session_state['crop']}** | **{st.session_state['year']}**")
 
-    fig = px.choropleth_mapbox(
+    fig = px.choropleth(
         risk_df,
         geojson=ethiopia_geojson,
         featureidkey="properties.ADM1_EN",
@@ -492,13 +492,13 @@ elif page == "🗺️ Ethiopia Risk Map":
             'Medium Risk': '#fd7e14',
             'High Risk': '#dc3545'
         },
-        mapbox_style="carto-positron",
-        zoom=5,
-        center={"lat": 9.145, "lon": 40.4897},
-        opacity=0.7,
         title="Food Security Risk Map of Ethiopia by Region"
     )
-    fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0})
+    fig.update_geos(
+        fitbounds="locations",
+        visible=False
+    )
+    fig.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0})
     st.plotly_chart(fig, use_container_width=True)
 
 # =====================================================
