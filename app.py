@@ -82,66 +82,42 @@ crop_encoder.fit(sorted(df['crop type'].unique()))
 # =====================================================
 
 CROP_IMAGES = {
-    "Maize":        "https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/Simple_corn_on_the_cob.jpg/320px-Simple_corn_on_the_cob.jpg",
-    "Wheat":        "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7c/Wheat_field_in_Dorset%2C_England_-_July_2009.jpg/320px-Wheat_field_in_Dorset%2C_England_-_July_2009.jpg",
-    "Teff":         "https://upload.wikimedia.org/wikipedia/commons/thumb/4/45/Eragrostis_tef_-_teff_%28aka%29.jpg/320px-Eragrostis_tef_-_teff_%28aka%29.jpg",
-    "Sorghum":      "https://upload.wikimedia.org/wikipedia/commons/thumb/8/84/Sorghum_crop.jpg/320px-Sorghum_crop.jpg",
-    "Barley":       "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Barley_field.jpg/320px-Barley_field.jpg",
-    "Coffee":       "https://upload.wikimedia.org/wikipedia/commons/thumb/4/45/A_small_cup_of_coffee.JPG/320px-A_small_cup_of_coffee.JPG",
-    "Sesame":       "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e6/Sesamum_indicum_2.jpg/320px-Sesamum_indicum_2.jpg",
-    "Chickpea":     "https://upload.wikimedia.org/wikipedia/commons/thumb/7/76/Chickpea_crop.jpg/320px-Chickpea_crop.jpg",
-    "Millet":       "https://upload.wikimedia.org/wikipedia/commons/thumb/2/21/Panicum_miliaceum_USDA.jpg/320px-Panicum_miliaceum_USDA.jpg",
-    "Bean":         "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/Haricot_beans.jpg/320px-Haricot_beans.jpg",
-    "Lentil":       "https://upload.wikimedia.org/wikipedia/commons/thumb/6/62/Lens_culinaris.jpg/320px-Lens_culinaris.jpg",
-    "Sunflower":    "https://upload.wikimedia.org/wikipedia/commons/thumb/4/40/Sunflower_sky_backdrop.jpg/320px-Sunflower_sky_backdrop.jpg",
-    "Potato":       "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Potato_and_cross_section.jpg/320px-Potato_and_cross_section.jpg",
-    "Sweet Potato": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/58/Ipomoea_batatas_006.jpg/320px-Ipomoea_batatas_006.jpg",
-    "Rice":         "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/White_rice.jpg/320px-White_rice.jpg",
-    "Cassava":      "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a9/Manihot_esculenta_-_K%C3%B6hler%E2%80%93s_Medizinal-Pflanzen-090.jpg/320px-Manihot_esculenta_-_K%C3%B6hler%E2%80%93s_Medizinal-Pflanzen-090.jpg",
-    "Groundnut":    "https://upload.wikimedia.org/wikipedia/commons/thumb/0/00/Peanut_cluster_2.jpg/320px-Peanut_cluster_2.jpg",
-    "Pea":          "https://upload.wikimedia.org/wikipedia/commons/thumb/4/40/Peas_in_pods_-_Studio.jpg/320px-Peas_in_pods_-_Studio.jpg",
-    "Faba Bean":    "https://upload.wikimedia.org/wikipedia/commons/thumb/4/forty/Vicia_faba_habito.jpg/320px-Vicia_faba_habito.jpg",
-    "Oat":          "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e4/Avena_sativa_-_Köhler–s_Medizinal-Pflanzen-016.jpg/320px-Avena_sativa_-_Köhler–s_Medizinal-Pflanzen-016.jpg",
-    "Enset":        "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c0/Enset_2.jpg/320px-Enset_2.jpg",
-    "Sugar Cane":   "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5f/Sugarcane_field.jpg/320px-Sugarcane_field.jpg",
-    "Cotton":       "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f3/Cotton_plant.jpg/320px-Cotton_plant.jpg",
+    "Maize":   "https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/Simple_corn_on_the_cob.jpg/320px-Simple_corn_on_the_cob.jpg",
+    "Wheat":   "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/WheatBread_transparency.png/320px-WheatBread_transparency.png",
+    "Teff":    "https://upload.wikimedia.org/wikipedia/commons/thumb/4/45/Eragrostis_tef_-_teff_%28aka%29.jpg/320px-Eragrostis_tef_-_teff_%28aka%29.jpg",
+    "Barley":  "https://upload.wikimedia.org/wikipedia/commons/thumb/9/99/Barleyleaf.jpg/320px-Barleyleaf.jpg",
+    "Sorghum": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/84/Sorghum_crop.jpg/320px-Sorghum_crop.jpg",
+    "Millet":  "https://upload.wikimedia.org/wikipedia/commons/thumb/2/21/Panicum_miliaceum_USDA.jpg/320px-Panicum_miliaceum_USDA.jpg",
+    "Oats":    "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e4/Avena_sativa_-_K%C3%B6hler%E2%80%93s_Medizinal-Pflanzen-016.jpg/320px-Avena_sativa_-_K%C3%B6hler%E2%80%93s_Medizinal-Pflanzen-016.jpg",
 }
 
 DEFAULT_CROP_IMAGE = "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Farmland_at_sunset.jpg/320px-Farmland_at_sunset.jpg"
 
 # =====================================================
-# CROP LAND/ACRES IMAGES
+# CROP LAND/ACRES IMAGES — fields filled with each crop
 # =====================================================
 
 CROP_LAND_IMAGES = {
-    "Maize":        "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9d/Cornfield_banner.jpg/320px-Cornfield_banner.jpg",
-    "Wheat":        "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7c/Wheat_field_in_Dorset%2C_England_-_July_2009.jpg/640px-Wheat_field_in_Dorset%2C_England_-_July_2009.jpg",
-    "Teff":         "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/Teff_field_Ethiopia.jpg/640px-Teff_field_Ethiopia.jpg",
-    "Sorghum":      "https://upload.wikimedia.org/wikipedia/commons/thumb/3/34/Sorghum_crop_Andhra_Pradesh_India.jpg/640px-Sorghum_crop_Andhra_Pradesh_India.jpg",
-    "Barley":       "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5d/Barley_field.jpg/640px-Barley_field.jpg",
-    "Coffee":       "https://upload.wikimedia.org/wikipedia/commons/thumb/2/21/Coffee_berries_coffee_berries_on_a_branch.jpg/640px-Coffee_berries_coffee_berries_on_a_branch.jpg",
-    "Sesame":       "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e6/Sesamum_indicum_2.jpg/640px-Sesamum_indicum_2.jpg",
-    "Chickpea":     "https://upload.wikimedia.org/wikipedia/commons/thumb/7/76/Chickpea_crop.jpg/640px-Chickpea_crop.jpg",
-    "Millet":       "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0b/Millet_field.jpg/640px-Millet_field.jpg",
-    "Bean":         "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/Haricot_beans.jpg/640px-Haricot_beans.jpg",
-    "Lentil":       "https://upload.wikimedia.org/wikipedia/commons/thumb/6/62/Lens_culinaris.jpg/640px-Lens_culinaris.jpg",
-    "Sunflower":    "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b3/Sunflower_field_1.jpg/640px-Sunflower_field_1.jpg",
-    "Potato":       "https://upload.wikimedia.org/wikipedia/commons/thumb/8/88/Potato_field.jpg/640px-Potato_field.jpg",
-    "Sweet Potato": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/58/Ipomoea_batatas_006.jpg/640px-Ipomoea_batatas_006.jpg",
-    "Rice":         "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Ricefarm.jpg/640px-Ricefarm.jpg",
-    "Cassava":      "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d5/Cassava_plantation.jpg/640px-Cassava_plantation.jpg",
-    "Groundnut":    "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/Peanut_field.jpg/640px-Peanut_field.jpg",
-    "Enset":        "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c0/Enset_2.jpg/640px-Enset_2.jpg",
-    "Sugar Cane":   "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6d/Sugarcane_field.jpg/640px-Sugarcane_field.jpg",
-    "Cotton":       "https://upload.wikimedia.org/wikipedia/commons/thumb/1/18/Cotton_field_California.jpg/640px-Cotton_field_California.jpg",
-    "Faba Bean":    "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a1/Broad_bean_field.jpg/640px-Broad_bean_field.jpg",
-    "Oat":          "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e4/Avena_sativa_-_K%C3%B6hler%E2%80%93s_Medizinal-Pflanzen-016.jpg/640px-Avena_sativa_-_K%C3%B6hler%E2%80%93s_Medizinal-Pflanzen-016.jpg",
-    "Pea":          "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6d/Pea_field.jpg/640px-Pea_field.jpg",
+    # Maize — a field full of maize/corn plants
+    "Maize":   "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9d/Cornfield_banner.jpg/640px-Cornfield_banner.jpg",
+    # Wheat — a golden wheat field
+    "Wheat":   "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7c/Wheat_field_in_Dorset%2C_England_-_July_2009.jpg/640px-Wheat_field_in_Dorset%2C_England_-_July_2009.jpg",
+    # Teff — a teff crop field
+    "Teff":    "https://upload.wikimedia.org/wikipedia/commons/thumb/4/45/Eragrostis_tef_-_teff_%28aka%29.jpg/640px-Eragrostis_tef_-_teff_%28aka%29.jpg",
+    # Barley — a barley field
+    "Barley":  "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Barley_field.jpg/640px-Barley_field.jpg",
+    # Sorghum — a sorghum crop field
+    "Sorghum": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/34/Sorghum_crop_Andhra_Pradesh_India.jpg/640px-Sorghum_crop_Andhra_Pradesh_India.jpg",
+    # Millet — a millet field
+    "Millet":  "https://upload.wikimedia.org/wikipedia/commons/thumb/2/21/Panicum_miliaceum_USDA.jpg/640px-Panicum_miliaceum_USDA.jpg",
+    # Oats — an oats field
+    "Oats":    "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e4/Avena_sativa_-_K%C3%B6hler%E2%80%93s_Medizinal-Pflanzen-016.jpg/640px-Avena_sativa_-_K%C3%B6hler%E2%80%93s_Medizinal-Pflanzen-016.jpg",
 }
 
-DEFAULT_LAND_IMAGE = "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Farmland_at_sunset.jpg/320px-Farmland_at_sunset.jpg"
+DEFAULT_LAND_IMAGE = "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Farmland_at_sunset.jpg/640px-Farmland_at_sunset.jpg"
 
 def get_crop_land_image(crop_name):
+    """Return field image filled with the selected crop type."""
     if crop_name in CROP_LAND_IMAGES:
         return CROP_LAND_IMAGES[crop_name]
     for key in CROP_LAND_IMAGES:
@@ -150,7 +126,7 @@ def get_crop_land_image(crop_name):
     return DEFAULT_LAND_IMAGE
 
 def get_crop_image(crop_name):
-    # Try exact match first, then partial match
+    """Return close-up image of the crop."""
     if crop_name in CROP_IMAGES:
         return CROP_IMAGES[crop_name]
     for key in CROP_IMAGES:
