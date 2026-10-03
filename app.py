@@ -362,25 +362,71 @@ elif page == "🔍 Explainable AI":
     st.subheader("🔎 Explanation for Your Prediction")
     shap_single = explainer.shap_values(input_data)
 
-    if isinstance(explainer.expected_value, (list, np.ndarray)):
-        ev = explainer.expected_value[int(xgb_pred)]
-        sv = shap_single[int(xgb_pred)][0]
-    else:
-        ev = explainer.expected_value
-        sv = shap_single[0]
+    try:
+        # shap_single can be:
+        # 1. list of arrays (one per class) — multiclass
+        # 2. 2D array — binary or single output
+        # 3. 3D array — (samples, features, classes)
 
-    fig2, ax2 = plt.subplots(figsize=(10, 5))
-    shap.waterfall_plot(
-        shap.Explanation(
-            values=sv,
-            base_values=ev,
-            data=input_data.iloc[0],
-            feature_names=input_data.columns.tolist()
-        ),
-        show=False
-    )
-    st.pyplot(fig2)
-    plt.close(fig2)
+        if isinstance(shap_single, list):
+            # list of arrays: one per class
+            idx = min(int(xgb_pred), len(shap_single) - 1)
+            sv = shap_single[idx][0]
+            ev = explainer.expected_value[idx] if isinstance(
+                explainer.expected_value, (list, np.ndarray)
+            ) else explainer.expected_value
+
+        elif isinstance(shap_single, np.ndarray) and shap_single.ndim == 3:
+            # shape: (samples, features, classes)
+            idx = min(int(xgb_pred), shap_single.shape[2] - 1)
+            sv = shap_single[0, :, idx]
+            ev = explainer.expected_value[idx] if isinstance(
+                explainer.expected_value, (list, np.ndarray)
+            ) else explainer.expected_value
+
+        else:
+            # 2D array: shape (samples, features)
+            sv = shap_single[0]
+            ev = explainer.expected_value[0] if isinstance(
+                explainer.expected_value, (list, np.ndarray)
+            ) else explainer.expected_value
+
+        fig2, ax2 = plt.subplots(figsize=(10, 5))
+        shap.waterfall_plot(
+            shap.Explanation(
+                values=sv,
+                base_values=float(ev),
+                data=input_data.iloc[0].values,
+                feature_names=input_data.columns.tolist()
+            ),
+            show=False
+        )
+        st.pyplot(fig2)
+        plt.close(fig2)
+
+    except Exception as e:
+        # Fallback: bar chart of feature importance for this prediction
+        st.warning("Waterfall plot could not be rendered. Showing bar chart instead.")
+        if isinstance(shap_single, list):
+            sv = shap_single[0][0]
+        elif isinstance(shap_single, np.ndarray) and shap_single.ndim == 3:
+            sv = shap_single[0, :, 0]
+        else:
+            sv = shap_single[0]
+
+        shap_df = pd.DataFrame({
+            "Feature": input_data.columns.tolist(),
+            "SHAP Value": sv
+        }).sort_values("SHAP Value", key=abs, ascending=False)
+
+        fig3, ax3 = plt.subplots(figsize=(10, 5))
+        colors = ["#dc3545" if v > 0 else "#28a745" for v in shap_df["SHAP Value"]]
+        ax3.barh(shap_df["Feature"], shap_df["SHAP Value"], color=colors)
+        ax3.set_xlabel("SHAP Value")
+        ax3.set_title("Feature Contributions to Prediction")
+        plt.tight_layout()
+        st.pyplot(fig3)
+        plt.close(fig3)
 
 # =====================================================
 # RISK ANALYSIS PAGE
