@@ -907,64 +907,98 @@ elif page == "🔍 Explainable AI":
 
     # --- Individual SHAP waterfall ---
     st.subheader("🔎 Feature Contributions for Your Prediction")
+    st.caption("Red bars increase risk | Green bars decrease risk | Sorted by importance")
     shap_single = explainer.shap_values(input_data)
 
+    # Extract SHAP values safely
     try:
         if isinstance(shap_single, list):
             idx = min(int(xgb_pred), len(shap_single) - 1)
             sv  = shap_single[idx][0]
-            ev  = explainer.expected_value[idx] if isinstance(
-                explainer.expected_value, (list, np.ndarray)
-            ) else explainer.expected_value
-
         elif isinstance(shap_single, np.ndarray) and shap_single.ndim == 3:
             idx = min(int(xgb_pred), shap_single.shape[2] - 1)
             sv  = shap_single[0, :, idx]
-            ev  = explainer.expected_value[idx] if isinstance(
-                explainer.expected_value, (list, np.ndarray)
-            ) else explainer.expected_value
-
         else:
             sv = shap_single[0]
-            ev = explainer.expected_value[0] if isinstance(
-                explainer.expected_value, (list, np.ndarray)
-            ) else explainer.expected_value
-
-        fig2, ax2 = plt.subplots(figsize=(10, 5))
-        shap.waterfall_plot(
-            shap.Explanation(
-                values=sv,
-                base_values=float(ev),
-                data=input_data.iloc[0].values,
-                feature_names=input_data.columns.tolist()
-            ),
-            show=False
-        )
-        st.pyplot(fig2)
-        plt.close(fig2)
-
     except Exception:
-        st.warning("Waterfall plot unavailable. Showing bar chart instead.")
-        if isinstance(shap_single, list):
-            sv = shap_single[0][0]
-        elif isinstance(shap_single, np.ndarray) and shap_single.ndim == 3:
-            sv = shap_single[0, :, 0]
-        else:
-            sv = shap_single[0]
+        sv = shap_single[0] if not isinstance(shap_single, list) else shap_single[0][0]
 
-        shap_df = pd.DataFrame({
-            "Feature":    input_data.columns.tolist(),
-            "SHAP Value": sv
-        }).sort_values("SHAP Value", key=abs, ascending=False)
+    # Build dataframe sorted by absolute SHAP value
+    shap_df = pd.DataFrame({
+        "Feature":    input_data.columns.tolist(),
+        "SHAP Value": sv
+    }).sort_values("SHAP Value", key=abs, ascending=True)
 
-        fig3, ax3 = plt.subplots(figsize=(10, 5))
-        bar_colors = ["#dc3545" if v > 0 else "#28a745" for v in shap_df["SHAP Value"]]
-        ax3.barh(shap_df["Feature"], shap_df["SHAP Value"], color=bar_colors)
-        ax3.set_xlabel("SHAP Value (Red = increases risk, Green = decreases risk)")
-        ax3.set_title("Feature Contributions to Prediction")
-        plt.tight_layout()
-        st.pyplot(fig3)
-        plt.close(fig3)
+    # Color: red = increases risk, green = decreases risk
+    bar_colors = ["#dc3545" if v > 0 else "#28a745" for v in shap_df["SHAP Value"]]
+
+    fig_bar, ax_bar = plt.subplots(figsize=(10, 7))
+
+    bars = ax_bar.barh(
+        shap_df["Feature"],
+        shap_df["SHAP Value"],
+        color=bar_colors,
+        edgecolor="white",
+        linewidth=0.5,
+        height=0.6
+    )
+
+    # Add value labels on each bar
+    for bar, val in zip(bars, shap_df["SHAP Value"]):
+        x_pos = bar.get_width()
+        ax_bar.text(
+            x_pos + (0.001 if x_pos >= 0 else -0.001),
+            bar.get_y() + bar.get_height() / 2,
+            f"{val:+.4f}",
+            va="center",
+            ha="left" if x_pos >= 0 else "right",
+            fontsize=9,
+            color="#333333"
+        )
+
+    # Add vertical line at 0
+    ax_bar.axvline(x=0, color="black", linewidth=0.8, linestyle="--")
+
+    # Labels and styling
+    ax_bar.set_xlabel("SHAP Value  (positive = increases risk,  negative = decreases risk)",
+                      fontsize=10)
+    ax_bar.set_title(
+        f"Feature Contributions — {get_risk_label(xgb_pred)} "
+        f"({region} | {crop} | {year})",
+        fontsize=12, fontweight="bold", pad=12
+    )
+    ax_bar.tick_params(axis="y", labelsize=10)
+    ax_bar.tick_params(axis="x", labelsize=9)
+    ax_bar.spines["top"].set_visible(False)
+    ax_bar.spines["right"].set_visible(False)
+
+    # Custom legend
+    from matplotlib.patches import Patch
+    legend_elements = [
+        Patch(facecolor="#dc3545", label="Increases Risk"),
+        Patch(facecolor="#28a745", label="Decreases Risk"),
+    ]
+    ax_bar.legend(handles=legend_elements, loc="lower right", fontsize=9)
+
+    plt.tight_layout()
+    st.pyplot(fig_bar)
+    plt.close(fig_bar)
+
+    st.markdown("---")
+
+    # Summary table below the chart
+    st.subheader("📋 Feature Contributions Table")
+    shap_table = shap_df.copy().sort_values("SHAP Value", key=abs, ascending=False)
+    shap_table["Direction"] = shap_table["SHAP Value"].apply(
+        lambda v: "🔴 Increases Risk" if v > 0 else "🟢 Decreases Risk"
+    )
+    shap_table["SHAP Value"] = shap_table["SHAP Value"].apply(lambda v: f"{v:+.4f}")
+    shap_table["Feature Value"] = input_data.iloc[0].values
+    shap_table["Feature Value"] = shap_table["Feature Value"].apply(lambda v: f"{v:.4f}")
+    st.dataframe(
+        shap_table[["Feature", "Feature Value", "SHAP Value", "Direction"]].reset_index(drop=True),
+        use_container_width=True
+    )
 
 # =====================================================
 # RISK ANALYSIS PAGE
