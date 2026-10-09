@@ -719,6 +719,25 @@ elif page == "🤖 Prediction":
         selected_crop = st.selectbox("🌾 Crop Type", options=sorted(df["crop type"].unique()))
     with col3:
         selected_year = st.selectbox("📅 Year", options=sorted(df["Year"].unique(), reverse=True))
+        
+# Gallery of the 7 crop types on the Prediction page
+st.markdown("### 🌾 Crop Field Gallery")
+
+crop_names = [
+    "Maize", "Wheat", "Teff", "Barley",
+    "Sorghum", "Millet", "Oats"
+]
+
+gallery_cols = st.columns(4)
+
+for i, crop_name in enumerate(crop_names):
+    with gallery_cols[i % 4]:
+        st.image(
+            get_crop_land_image(crop_name),
+            caption=f"🌱 {crop_name} Field",
+            use_container_width=True
+        )
+
 
     # Show crop image and land image when crop is selected
     st.markdown("---")
