@@ -719,24 +719,6 @@ elif page == "🤖 Prediction":
         selected_crop = st.selectbox("🌾 Crop Type", options=sorted(df["crop type"].unique()))
     with col3:
         selected_year = st.selectbox("📅 Year", options=sorted(df["Year"].unique(), reverse=True))
-        
-# Gallery of the 7 crop types on the Prediction page
-st.markdown("### 🌾 Crop Field Gallery")
-
-crop_names = [
-    "Maize", "Wheat", "Teff", "Barley",
-    "Sorghum", "Millet", "Oats"
-]
-
-gallery_cols = st.columns(4)
-
-for i, crop_name in enumerate(crop_names):
-    with gallery_cols[i % 4]:
-        st.image(
-            get_crop_land_image(crop_name),
-            caption=f"🌱 {crop_name} Field",
-            use_container_width=True
-        )
 
 
     # Show crop image and land image when crop is selected
@@ -787,20 +769,25 @@ for i, crop_name in enumerate(crop_names):
         st.markdown(f"**Region:** {selected_region} | **Crop:** {selected_crop} | **Year:** {selected_year}")
         st.markdown("---")
 
-        # Show crop image and land image in results
-        res_img_col, res_land_col, res_results_col = st.columns([1, 1, 2])
-        with res_img_col:
-            st.image(
-                get_crop_image(selected_crop),
-                caption=f"🌾 {selected_crop}",
-                use_container_width=True
-            )
-        with res_land_col:
-            st.image(
-                get_crop_land_image(selected_crop),
-                caption=f"🌱 {selected_crop} Field (Acres)",
-                use_container_width=True
-            )
+
+# Gallery of the 7 crop types on the Prediction page
+st.markdown("### 🌾 Crop Field Gallery")
+
+crop_names = [
+    "Maize", "Wheat", "Teff", "Barley",
+    "Sorghum", "Millet", "Oats"
+]
+
+gallery_cols = st.columns(4)
+
+for i, crop_name in enumerate(crop_names):
+    with gallery_cols[i % 4]:
+        st.image(
+            get_crop_land_image(crop_name),
+            caption=f"🌱 {crop_name} Field",
+            use_container_width=True
+        )
+
 
         with res_results_col:
             col1, col2 = st.columns(2)
