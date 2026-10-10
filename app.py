@@ -145,39 +145,10 @@ def _download_image(url):
         return None
     return None
 
-def _crop_field_svg(crop_name):
-    """Offline fallback illustration, so the field panel is never blank."""
-    crop = str(crop_name).strip() or "Crop"
-    safe_crop = (crop.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))[:35]
-    # Simple illustrative crop rows; this is an illustration, not a satellite image.
-    plants = []
-    for row in range(5):
-        y = 215 - row * 25
-        for col in range(9):
-            x = 45 + col * 48 + (row % 2) * 15
-            plants.append(
-                f'<path d="M{x} {y} q-15 -18 -19 -5 q8 13 19 9 '
-                f'q12 -20 22 -7 q-5 13 -22 10" fill="#3f8b3d"/>'
-                f'<path d="M{x} {y} v22" stroke="#326d2e" stroke-width="3"/>'
-            )
-    svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="640" height="300" viewBox="0 0 640 300">
-      <defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#bde5f7"/><stop offset="1" stop-color="#f5f0c7"/></linearGradient></defs>
-      <rect width="640" height="300" fill="url(#sky)"/>
-      <circle cx="535" cy="55" r="27" fill="#ffd45c"/>
-      <path d="M0 135 L115 70 L220 135 L330 65 L460 140 L555 85 L640 130 L640 300 L0 300 Z" fill="#8fb77c"/>
-      <path d="M0 175 Q160 140 320 180 T640 170 L640 300 L0 300 Z" fill="#b98a4b"/>
-      <path d="M0 225 Q160 190 320 230 T640 220 L640 300 L0 300 Z" fill="#8f6638"/>
-      {''.join(plants)}
-      <rect x="12" y="12" width="616" height="42" rx="9" fill="#ffffff" fill-opacity=".88"/>
-      <text x="320" y="39" text-anchor="middle" font-family="Arial,sans-serif" font-size="21" font-weight="bold" fill="#234b28">{safe_crop} field illustration</text>
-      <text x="320" y="285" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" fill="#ffffff">Illustrative field view • not an actual acreage/satellite image</text>
-    </svg>"""
-    return svg.encode("utf-8")
-
-def show_crop_land_image(crop_name, caption, use_container_width=True):
-    """Display a bundled field illustration for each of the seven crop types, with safe fallbacks."""
-    crop_lower = _normalize_crop_name(crop_name)
-    crop_file_map = {
+def _local_crop_field_path(crop_name):
+    """Find the bundled local field image for the selected crop."""
+    crop = _normalize_crop_name(crop_name)
+    image_map = {
         "maize": "maize_field.png",
         "wheat": "wheat_field.png",
         "teff": "teff_field.png",
@@ -186,25 +157,58 @@ def show_crop_land_image(crop_name, caption, use_container_width=True):
         "millet": "millet_field.png",
         "oats": "oats_field.png",
     }
-    asset_dir = Path(__file__).resolve().parent
-    for crop_key, filename in crop_file_map.items():
-        if crop_key in crop_lower:
-            local_image = asset_dir / filename
-            if local_image.exists():
-                st.image(str(local_image), caption=caption, use_container_width=use_container_width)
-                return
+    base_dir = Path(__file__).resolve().parent
+    for crop_key, filename in image_map.items():
+        if crop_key in crop:
+            path = base_dir / filename
+            if path.is_file():
+                return path
+    fallback = base_dir / "maize_field.png"
+    return fallback if fallback.is_file() else None
 
-    # If an image asset is missing, try the remote crop photo and finally an offline illustration.
-    url = get_crop_land_image(crop_name)
-    image_bytes = _download_image(url)
-    if image_bytes is None and url != DEFAULT_LAND_IMAGE:
-        image_bytes = _download_image(DEFAULT_LAND_IMAGE)
-    if image_bytes is None:
-        image_bytes = _crop_field_svg(crop_name)
-        st.image(image_bytes, caption=f"{caption} (illustration fallback)",
-                 use_container_width=use_container_width)
-    else:
-        st.image(image_bytes, caption=caption, use_container_width=use_container_width)
+
+def _make_valid_fallback_png(crop_name):
+    """Create a real PNG fallback using Pillow (never pass SVG bytes to st.image)."""
+    from PIL import Image, ImageDraw
+    crop = str(crop_name or "Crop").strip()[:35]
+    img = Image.new("RGB", (900, 420), (188, 225, 242))
+    draw = ImageDraw.Draw(img)
+    draw.rectangle((0, 175, 900, 420), fill=(133, 96, 49))
+    draw.polygon([(0, 200), (150, 125), (280, 205), (430, 115), (610, 200), (760, 140), (900, 190), (900, 250), (0, 250)], fill=(120, 164, 100))
+    # Draw repeated crop rows and green plants.
+    for row in range(5):
+        y = 235 + row * 34
+        for col in range(18):
+            x = 20 + col * 50 + (row % 2) * 20
+            draw.line((x, y, x, y + 40), fill=(42, 100, 36), width=4)
+            draw.ellipse((x-15, y+2, x+2, y+13), fill=(58, 139, 49))
+            draw.ellipse((x, y+10, x+17, y+21), fill=(70, 151, 55))
+    draw.rounded_rectangle((18, 15, 882, 75), radius=12, fill=(255, 255, 255))
+    draw.text((450, 35), f"{crop} field illustration", fill=(31, 83, 39), anchor="mm")
+    out = io.BytesIO()
+    img.save(out, format="PNG")
+    return out.getvalue()
+
+
+def show_crop_land_image(crop_name, caption, use_container_width=True):
+    """Display the selected crop's bundled PNG; use a valid generated PNG as fallback."""
+    local_path = _local_crop_field_path(crop_name)
+    if local_path is not None:
+        try:
+            # Verify the file is a readable image before asking Streamlit to display it.
+            from PIL import Image
+            with Image.open(local_path) as image:
+                image.verify()
+            st.image(str(local_path), caption=caption, use_container_width=use_container_width)
+            return
+        except Exception:
+            pass
+
+    # PNG bytes are generated locally, so this works even if network images are unavailable.
+    fallback_png = _make_valid_fallback_png(crop_name)
+    st.image(fallback_png, caption=f"{caption} (illustration fallback)",
+             use_container_width=use_container_width)
+
 
 def get_crop_image(crop_name):
     """Return close-up image of the crop."""
@@ -811,7 +815,8 @@ elif page == "🤖 Prediction":
     with land_col:
         show_crop_land_image(
             selected_crop,
-            caption=f"🌱 {selected_crop} Field (illustrative; acreage is entered separately)",
+            caption=(f"🌱 {selected_crop} Field (illustrative acreage visual; entered area: "
+                     f"shown in the panel)"),
             use_container_width=True
         )
     with info_col:
