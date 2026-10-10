@@ -15,6 +15,8 @@ import io
 from contextlib import redirect_stdout
 import json
 import seaborn as sns
+from pathlib import Path
+from urllib.request import Request, urlopen
 
 # =====================================================
 # PAGE CONFIGURATION
@@ -116,14 +118,93 @@ CROP_LAND_IMAGES = {
 
 DEFAULT_LAND_IMAGE = "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Farmland_at_sunset.jpg/640px-Farmland_at_sunset.jpg"
 
+def _normalize_crop_name(crop_name):
+    """Normalize crop labels so names like 'maize ' and 'MAIZE' match."""
+    return str(crop_name).strip().lower()
+
 def get_crop_land_image(crop_name):
-    """Return field image filled with the selected crop type."""
-    if crop_name in CROP_LAND_IMAGES:
-        return CROP_LAND_IMAGES[crop_name]
-    for key in CROP_LAND_IMAGES:
-        if key.lower() in crop_name.lower() or crop_name.lower() in key.lower():
-            return CROP_LAND_IMAGES[key]
+    """Return a field-image URL, matching crop names case-insensitively."""
+    crop_lower = _normalize_crop_name(crop_name)
+    for key, url in CROP_LAND_IMAGES.items():
+        key_lower = _normalize_crop_name(key)
+        if crop_lower == key_lower or key_lower in crop_lower or crop_lower in key_lower:
+            return url
     return DEFAULT_LAND_IMAGE
+
+@st.cache_data(show_spinner=False, ttl=3600)
+def _download_image(url):
+    """Download and cache image bytes; return None if the URL is unavailable."""
+    try:
+        request = Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urlopen(request, timeout=6) as response:
+            content_type = response.headers.get("Content-Type", "")
+            image_bytes = response.read()
+            if response.status == 200 and "image" in content_type.lower() and image_bytes:
+                return image_bytes
+    except Exception:
+        return None
+    return None
+
+def _crop_field_svg(crop_name):
+    """Offline fallback illustration, so the field panel is never blank."""
+    crop = str(crop_name).strip() or "Crop"
+    safe_crop = (crop.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))[:35]
+    # Simple illustrative crop rows; this is an illustration, not a satellite image.
+    plants = []
+    for row in range(5):
+        y = 215 - row * 25
+        for col in range(9):
+            x = 45 + col * 48 + (row % 2) * 15
+            plants.append(
+                f'<path d="M{x} {y} q-15 -18 -19 -5 q8 13 19 9 '
+                f'q12 -20 22 -7 q-5 13 -22 10" fill="#3f8b3d"/>'
+                f'<path d="M{x} {y} v22" stroke="#326d2e" stroke-width="3"/>'
+            )
+    svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="640" height="300" viewBox="0 0 640 300">
+      <defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#bde5f7"/><stop offset="1" stop-color="#f5f0c7"/></linearGradient></defs>
+      <rect width="640" height="300" fill="url(#sky)"/>
+      <circle cx="535" cy="55" r="27" fill="#ffd45c"/>
+      <path d="M0 135 L115 70 L220 135 L330 65 L460 140 L555 85 L640 130 L640 300 L0 300 Z" fill="#8fb77c"/>
+      <path d="M0 175 Q160 140 320 180 T640 170 L640 300 L0 300 Z" fill="#b98a4b"/>
+      <path d="M0 225 Q160 190 320 230 T640 220 L640 300 L0 300 Z" fill="#8f6638"/>
+      {''.join(plants)}
+      <rect x="12" y="12" width="616" height="42" rx="9" fill="#ffffff" fill-opacity=".88"/>
+      <text x="320" y="39" text-anchor="middle" font-family="Arial,sans-serif" font-size="21" font-weight="bold" fill="#234b28">{safe_crop} field illustration</text>
+      <text x="320" y="285" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" fill="#ffffff">Illustrative field view • not an actual acreage/satellite image</text>
+    </svg>"""
+    return svg.encode("utf-8")
+
+def show_crop_land_image(crop_name, caption, use_container_width=True):
+    """Display a bundled field illustration for each of the seven crop types, with safe fallbacks."""
+    crop_lower = _normalize_crop_name(crop_name)
+    crop_file_map = {
+        "maize": "maize_field.png",
+        "wheat": "wheat_field.png",
+        "teff": "teff_field.png",
+        "barley": "barley_field.png",
+        "sorghum": "sorghum_field.png",
+        "millet": "millet_field.png",
+        "oats": "oats_field.png",
+    }
+    asset_dir = Path(__file__).resolve().parent
+    for crop_key, filename in crop_file_map.items():
+        if crop_key in crop_lower:
+            local_image = asset_dir / filename
+            if local_image.exists():
+                st.image(str(local_image), caption=caption, use_container_width=use_container_width)
+                return
+
+    # If an image asset is missing, try the remote crop photo and finally an offline illustration.
+    url = get_crop_land_image(crop_name)
+    image_bytes = _download_image(url)
+    if image_bytes is None and url != DEFAULT_LAND_IMAGE:
+        image_bytes = _download_image(DEFAULT_LAND_IMAGE)
+    if image_bytes is None:
+        image_bytes = _crop_field_svg(crop_name)
+        st.image(image_bytes, caption=f"{caption} (illustration fallback)",
+                 use_container_width=use_container_width)
+    else:
+        st.image(image_bytes, caption=caption, use_container_width=use_container_width)
 
 def get_crop_image(crop_name):
     """Return close-up image of the crop."""
@@ -728,13 +809,28 @@ elif page == "🤖 Prediction":
         crop_img_url = get_crop_image(selected_crop)
         st.image(crop_img_url, caption=f"🌾 {selected_crop}", use_container_width=True)
     with land_col:
-        land_img_url = get_crop_land_image(selected_crop)
-        st.image(land_img_url, caption=f"🌱 {selected_crop} Field (Acres)", use_container_width=True)
+        show_crop_land_image(
+            selected_crop,
+            caption=f"🌱 {selected_crop} Field (illustrative; acreage is entered separately)",
+            use_container_width=True
+        )
     with info_col:
         st.markdown(f"### Selected Input")
         st.markdown(f"- 🌍 **Region:** {selected_region}")
         st.markdown(f"- 🌾 **Crop Type:** {selected_crop}")
         st.markdown(f"- 📅 **Year:** {selected_year}")
+        st.markdown("#### 🌱 Land Area (Acres)")
+        selected_acres = st.number_input(
+            "Enter the cultivated land area in acres",
+            min_value=0.1,
+            max_value=1000000.0,
+            value=50.0 if str(selected_crop).strip().lower() == "maize" else 1.0,
+            step=1.0,
+            key=f"land_acres_{selected_crop}_{selected_region}_{selected_year}",
+            help="Enter the actual acreage for the selected field. The image is illustrative and does not measure land area."
+        )
+        st.metric("Selected Field Area", f"{selected_acres:,.1f} acres")
+        st.caption(f"Equivalent area: {selected_acres * 0.404686:,.2f} hectares")
         crop_data = df[df["crop type"] == selected_crop]
         if not crop_data.empty:
             region_crop_data = df[
@@ -751,44 +847,45 @@ elif page == "🤖 Prediction":
 
     st.markdown("---")
 
-    if st.button("🔍 Predict Risk", use_container_width=True):
+    st.markdown("---")
 
+    # Gallery of the 7 crop types on the Prediction page
+    st.markdown("### 🌾 Crop Field Gallery")
+    crop_names = ["Maize", "Wheat", "Teff", "Barley", "Sorghum", "Millet", "Oats"]
+    gallery_cols = st.columns(4)
+    for i, crop_name in enumerate(crop_names):
+        with gallery_cols[i % 4]:
+            show_crop_land_image(
+                crop_name,
+                caption=f"🌱 {crop_name} Field",
+                use_container_width=True
+            )
+
+    # Show prediction results only after the button is clicked
+    if st.button("🔍 Predict Risk", use_container_width=True):
         xgb_pred, rf_pred, input_data = predict_risk(
             selected_region, selected_crop, selected_year
         )
-
-        st.session_state['region']     = selected_region
-        st.session_state['crop']       = selected_crop
-        st.session_state['year']       = selected_year
-        st.session_state['xgb_pred']   = xgb_pred
-        st.session_state['rf_pred']    = rf_pred
-        st.session_state['input_data'] = input_data
-        st.session_state['predicted']  = True
+        st.session_state["region"] = selected_region
+        st.session_state["crop"] = selected_crop
+        st.session_state["year"] = selected_year
+        st.session_state["xgb_pred"] = xgb_pred
+        st.session_state["rf_pred"] = rf_pred
+        st.session_state["input_data"] = input_data
+        st.session_state["predicted"] = True
 
         st.subheader("🎯 Prediction Results")
-        st.markdown(f"**Region:** {selected_region} | **Crop:** {selected_crop} | **Year:** {selected_year}")
-        st.markdown("---")
-
-
-# Gallery of the 7 crop types on the Prediction page
-st.markdown("### 🌾 Crop Field Gallery")
-
-crop_names = [
-    "Maize", "Wheat", "Teff", "Barley",
-    "Sorghum", "Millet", "Oats"
-]
-
-gallery_cols = st.columns(4)
-
-for i, crop_name in enumerate(crop_names):
-    with gallery_cols[i % 4]:
-        st.image(
-            get_crop_land_image(crop_name),
-            caption=f"🌱 {crop_name} Field",
-            use_container_width=True
+        st.markdown(
+            f"**Region:** {selected_region} | **Crop:** {selected_crop} | **Year:** {selected_year}"
         )
-
-
+        st.markdown("---")
+        res_img_col, res_results_col = st.columns([1, 2])
+        with res_img_col:
+            st.image(
+                get_crop_image(selected_crop),
+                caption=f"🌾 {selected_crop}",
+                use_container_width=True
+            )
         with res_results_col:
             col1, col2 = st.columns(2)
             with col1:
@@ -811,14 +908,18 @@ for i, crop_name in enumerate(crop_names):
                     </div>""",
                     unsafe_allow_html=True
                 )
-
         st.markdown("---")
         if xgb_pred == rf_pred:
-            st.success(f"✅ Both models agree: **{get_risk_label(xgb_pred)}** for {selected_region} - {selected_crop} in {selected_year}.")
+            st.success(
+                f"✅ Both models agree: **{get_risk_label(xgb_pred)}** for "
+                f"{selected_region} - {selected_crop} in {selected_year}."
+            )
         else:
-            st.warning(f"⚠️ Models disagree. XGBoost: **{get_risk_label(xgb_pred)}** | Random Forest: **{get_risk_label(rf_pred)}**.")
-
-    elif 'predicted' not in st.session_state:
+            st.warning(
+                f"⚠️ Models disagree. XGBoost: **{get_risk_label(xgb_pred)}** | "
+                f"Random Forest: **{get_risk_label(rf_pred)}**."
+            )
+    elif not st.session_state.get("predicted", False):
         st.info("👆 Select Region, Crop Type, and Year above then click **Predict Risk**.")
 
 # =====================================================
