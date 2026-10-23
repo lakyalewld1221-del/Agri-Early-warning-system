@@ -103,75 +103,131 @@ def get_crop_image(crop_name):
     return DEFAULT_CROP_IMAGE
 
 # =====================================================
-# CROP FIELD / LAND IMAGES — DYNAMIC BY CROP & RISK LEVEL
-# Spacing:
-# 0 (Low Risk):    Dense, lush, closely spaced healthy crop stand
-# 1 (Medium Risk): Moderate density, patchy or partially spaced crops
-# 2 (High Risk):   Sparse, widely spaced plants, stunted / drought-stressed field
+# DYNAMIC CROP FIELD SIMULATOR (Generated in Matplotlib)
+# Renders realistic aerial field plot showing crop spacing based on risk
 # =====================================================
 
-CROP_LAND_IMAGES = {
-    "Maize": {
-        0: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9d/Cornfield_banner.jpg/640px-Cornfield_banner.jpg",
-        1: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b2/Sweet_corn_field.jpg/640px-Sweet_corn_field.jpg",
-        2: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Drought_stress_on_young_corn.jpg/640px-Drought_stress_on_young_corn.jpg",
-    },
-    "Wheat": {
-        0: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7c/Wheat_field_in_Dorset%2C_England_-_July_2009.jpg/640px-Wheat_field_in_Dorset%2C_England_-_July_2009.jpg",
-        1: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Barley_field.jpg/640px-Barley_field.jpg",
-        2: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/18/Drought_in_Australia_2006.jpg/640px-Drought_in_Australia_2006.jpg",
-    },
-    "Teff": {
-        0: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/45/Eragrostis_tef_-_teff_%28aka%29.jpg/640px-Eragrostis_tef_-_teff_%28aka%29.jpg",
-        1: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/21/Panicum_miliaceum_USDA.jpg/640px-Panicum_miliaceum_USDA.jpg",
-        2: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/18/Drought_in_Australia_2006.jpg/640px-Drought_in_Australia_2006.jpg",
-    },
-    "Barley": {
-        0: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Barley_field.jpg/640px-Barley_field.jpg",
-        1: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/99/Barleyleaf.jpg/640px-Barleyleaf.jpg",
-        2: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/18/Drought_in_Australia_2006.jpg/640px-Drought_in_Australia_2006.jpg",
-    },
-    "Sorghum": {
-        0: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/34/Sorghum_crop_Andhra_Pradesh_India.jpg/640px-Sorghum_crop_Andhra_Pradesh_India.jpg",
-        1: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/84/Sorghum_crop.jpg/640px-Sorghum_crop.jpg",
-        2: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Drought_stress_on_young_corn.jpg/640px-Drought_stress_on_young_corn.jpg",
-    },
-    "Millet": {
-        0: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/21/Panicum_miliaceum_USDA.jpg/640px-Panicum_miliaceum_USDA.jpg",
-        1: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/84/Sorghum_crop.jpg/640px-Sorghum_crop.jpg",
-        2: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/18/Drought_in_Australia_2006.jpg/640px-Drought_in_Australia_2006.jpg",
-    },
-    "Oats": {
-        0: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e4/Avena_sativa_-_K%C3%B6hler%E2%80%93s_Medizinal-Pflanzen-016.jpg/640px-Avena_sativa_-_K%C3%B6hler%E2%80%93s_Medizinal-Pflanzen-016.jpg",
-        1: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Barley_field.jpg/640px-Barley_field.jpg",
-        2: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/18/Drought_in_Australia_2006.jpg/640px-Drought_in_Australia_2006.jpg",
-    },
-}
-
-DEFAULT_LAND_BY_RISK = {
-    0: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7c/Wheat_field_in_Dorset%2C_England_-_July_2009.jpg/640px-Wheat_field_in_Dorset%2C_England_-_July_2009.jpg",
-    1: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Farmland_at_sunset.jpg/640px-Farmland_at_sunset.jpg",
-    2: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/18/Drought_in_Australia_2006.jpg/640px-Drought_in_Australia_2006.jpg",
-}
-
-DEFAULT_LAND_IMAGE = DEFAULT_LAND_BY_RISK[0]
-
-def get_crop_land_image(crop_name, risk_code=None):
-    """Return field image filled with selected crop type, adjusted dynamically by risk level."""
+def render_crop_field_simulation(crop_name, risk_code):
+    """
+    Dynamically generates an aerial crop field visualization.
+    If risk is HIGH -> crops are generated FAR APART with dry cracked soil.
+    If risk is MEDIUM -> crops are generated with MODERATE SPACING.
+    If risk is LOW -> crops are generated DENSE and closely packed.
+    """
     code = int(risk_code) if risk_code is not None else 0
     if code not in [0, 1, 2]:
         code = 0
 
-    for key, risk_dict in CROP_LAND_IMAGES.items():
-        if key.lower() in crop_name.lower() or crop_name.lower() in key.lower():
-            if isinstance(risk_dict, dict):
-                return risk_dict.get(code, DEFAULT_LAND_BY_RISK.get(code, DEFAULT_LAND_IMAGE))
-            return risk_dict
+    fig, ax = plt.subplots(figsize=(6, 4.3), dpi=100)
 
-    return DEFAULT_LAND_BY_RISK.get(code, DEFAULT_LAND_IMAGE)
+    if code == 2:  # High Risk — Plants are far apart, dry soil, severe drought
+        grid_step = 2.4
+        plant_size = 140
+        plant_color = "#b2973b"   # Wilted / dry yellowish-brown
+        plant_edge  = "#5d4037"
+        soil_color  = "#d7ccc8"   # Dry, arid, cracked soil tone
+        spacing_text = "FAR APART (>150 cm spacing)"
+        density_pct = "18% Canopy Cover"
+        status_label = "🔴 HIGH RISK — SPARSE / WIDE SPACING"
+        marker_shape = "v"        # Drooping / wilted marker
+        noise_level = 0.35
+        num_plants_approx = "~15,000 plants/Ha"
+
+        # Generate drought soil cracks
+        np.random.seed(42)
+        for _ in range(7):
+            cx = np.random.uniform(1.0, 9.0)
+            cy = np.random.uniform(1.0, 9.0)
+            ax.plot([cx, cx + np.random.uniform(-1.8, 1.8)],
+                    [cy, cy + np.random.uniform(-1.8, 1.8)],
+                    color="#8d6e63", linewidth=1.2, alpha=0.55, linestyle=":")
+
+    elif code == 1:  # Medium Risk — Moderate spacing
+        grid_step = 1.35
+        plant_size = 180
+        plant_color = "#8bc34a"   # Light olive / pale green
+        plant_edge  = "#33691e"
+        soil_color  = "#a1887f"   # Moderately dry soil
+        spacing_text = "MODERATE (75-90 cm spacing)"
+        density_pct = "52% Canopy Cover"
+        status_label = "🟡 MEDIUM RISK — MODERATE SPACING"
+        marker_shape = "^"
+        noise_level = 0.16
+        num_plants_approx = "~42,000 plants/Ha"
+
+    else:  # Low Risk (code 0) — Dense, lush, thriving
+        grid_step = 0.8
+        plant_size = 230
+        plant_color = "#2e7d32"   # Lush emerald green
+        plant_edge  = "#1b5e20"
+        soil_color  = "#4e342e"   # Rich fertile moist loam
+        spacing_text = "DENSE (30-40 cm close spacing)"
+        density_pct = "94% Canopy Cover"
+        status_label = "🟢 LOW RISK — OPTIMAL DENSE STAND"
+        marker_shape = "^"
+        noise_level = 0.08
+        num_plants_approx = "~78,000 plants/Ha"
+
+    ax.set_facecolor(soil_color)
+    fig.patch.set_facecolor("#ffffff")
+
+    # Generate plant coordinates across the field
+    xs = np.arange(0.6, 9.6, grid_step)
+    ys = np.arange(0.6, 9.6, grid_step)
+    x_coords, y_coords = [], []
+
+    np.random.seed(15)
+    for x in xs:
+        for y in ys:
+            # High risk has higher mortality / missing plants
+            if code == 2 and np.random.rand() < 0.28:
+                continue
+            elif code == 1 and np.random.rand() < 0.08:
+                continue
+            jitter_x = x + np.random.uniform(-noise_level, noise_level)
+            jitter_y = y + np.random.uniform(-noise_level, noise_level)
+            x_coords.append(jitter_x)
+            y_coords.append(jitter_y)
+
+    # Plot crop plants
+    ax.scatter(
+        x_coords, y_coords,
+        s=plant_size,
+        c=plant_color,
+        edgecolors=plant_edge,
+        linewidths=1.2,
+        marker=marker_shape,
+        alpha=0.92,
+        zorder=3,
+        label=f"{crop_name} Plants"
+    )
+
+    ax.set_xlim(0, 10)
+    ax.set_ylim(0, 10)
+    ax.set_xticks([])
+    ax.set_yticks([])
+
+    # Grid planting lines
+    ax.grid(True, color="#ffffff", alpha=0.18, linestyle="--")
+
+    ax.set_title(
+        f"🌱 {crop_name} Field Canopy Simulation\n{status_label}",
+        fontsize=11, fontweight="bold", color="#111111", pad=8
+    )
+
+    # Annotation badge at bottom of plot
+    ax.text(
+        5, 0.45,
+        f"Spacing: {spacing_text} | {density_pct} | {num_plants_approx}",
+        fontsize=8.5, ha="center", va="center",
+        bbox=dict(boxstyle="round,pad=0.35", facecolor="white", alpha=0.92, edgecolor="#999")
+    )
+
+    plt.tight_layout()
+    return fig
 
 def get_field_density_description(risk_code):
-    """Return human-readable agronomic description of crop spacing according to risk level."""
+    """Return human-readable agronomic description of crop spacing."""
     code = int(risk_code) if risk_code is not None else 0
     if code == 2:
         return {
@@ -435,7 +491,7 @@ This dashboard predicts food security risk for Ethiopian regions using machine l
 2. Select **Region**, **Crop Type**, and **Year**
 3. Click **Predict Risk**
 4. View results compared between XGBoost and Random Forest
-5. Observe how the crop field condition and spacing dynamically adapt to the predicted risk level
+5. Observe the **dynamic generated crop field** showing plant spacing and canopy density corresponding to the risk level
 6. Explore other pages for deeper analysis
 """)
 
@@ -464,14 +520,15 @@ elif page == "🤖 Prediction":
         selected_year = st.selectbox("📅 Year", options=sorted(df["Year"].unique(), reverse=True))
 
     st.markdown("---")
-    img_col, land_col, info_col = st.columns([1, 1, 2])
+    img_col, land_col, info_col = st.columns([1, 1.2, 1.8])
     with img_col:
         crop_img_url = get_crop_image(selected_crop)
-        st.image(crop_img_url, caption=f"🌾 {selected_crop} (Reference)", use_container_width=True)
+        st.image(crop_img_url, caption=f"🌾 {selected_crop} Reference", use_container_width=True)
     with land_col:
-        land_img_url = get_crop_land_image(selected_crop, risk_code=0)
-        st.image(land_img_url, caption=f"🌱 {selected_crop} Field (Baseline Stand)", use_container_width=True)
-        st.caption("ℹ️ *Note: Field stand and plant spacing will dynamically update to reflect the predicted risk.*")
+        # Generated baseline simulation
+        baseline_fig = render_crop_field_simulation(selected_crop, risk_code=0)
+        st.pyplot(baseline_fig, use_container_width=True)
+        st.caption("ℹ️ *Field simulation: will dynamically update plant spacing after prediction.*")
     with info_col:
         st.markdown(f"### Selected Input")
         st.markdown(f"- 🌍 **Region:** {selected_region}")
@@ -511,8 +568,8 @@ elif page == "🤖 Prediction":
         st.markdown(f"**Region:** {selected_region} | **Crop:** {selected_crop} | **Year:** {selected_year}")
         st.markdown("---")
 
-        # Show crop image and dynamic land image based on predicted risk level
-        res_img_col, res_land_col, res_results_col = st.columns([1, 1, 2])
+        # Display results with generated crop field simulation
+        res_img_col, res_land_col, res_results_col = st.columns([1, 1.3, 1.7])
         with res_img_col:
             st.image(
                 get_crop_image(selected_crop),
@@ -520,14 +577,11 @@ elif page == "🤖 Prediction":
                 use_container_width=True
             )
         with res_land_col:
-            # Field image selected according to predicted risk
-            risk_land_img = get_crop_land_image(selected_crop, risk_code=xgb_pred)
+            # Dynamically generated field plot based on predicted risk
+            field_fig = render_crop_field_simulation(selected_crop, risk_code=xgb_pred)
+            st.pyplot(field_fig, use_container_width=True)
+
             density_info = get_field_density_description(xgb_pred)
-            st.image(
-                risk_land_img,
-                caption=f"🌱 {selected_crop} Field — {density_info['title']}",
-                use_container_width=True
-            )
             st.markdown(
                 f"""<div style='background-color:{density_info["badge_color"]}15; border-left: 4px solid {density_info["badge_color"]}; padding: 8px 12px; border-radius: 6px; margin-top: -6px;'>
                 <b style='color: {density_info["badge_color"]}; font-size: 13px;'>{density_info["title"]}</b><br>
@@ -541,20 +595,20 @@ elif page == "🤖 Prediction":
             with col1:
                 xgb_color = get_risk_color(xgb_pred)
                 st.markdown(
-                    f"""<div style='background-color:{xgb_color}; padding:30px;
+                    f"""<div style='background-color:{xgb_color}; padding:25px 15px;
                     border-radius:12px; text-align:center;'>
-                    <h2 style='color:white; margin:0;'>🚀 XGBoost</h2>
-                    <h1 style='color:white; margin:10px 0 0 0;'>{get_risk_label(xgb_pred)}</h1>
+                    <h3 style='color:white; margin:0;'>🚀 XGBoost</h3>
+                    <h2 style='color:white; margin:8px 0 0 0;'>{get_risk_label(xgb_pred)}</h2>
                     </div>""",
                     unsafe_allow_html=True
                 )
             with col2:
                 rf_color = get_risk_color(rf_pred)
                 st.markdown(
-                    f"""<div style='background-color:{rf_color}; padding:30px;
+                    f"""<div style='background-color:{rf_color}; padding:25px 15px;
                     border-radius:12px; text-align:center;'>
-                    <h2 style='color:white; margin:0;'>🌳 Random Forest</h2>
-                    <h1 style='color:white; margin:10px 0 0 0;'>{get_risk_label(rf_pred)}</h1>
+                    <h3 style='color:white; margin:0;'>🌳 Random Forest</h3>
+                    <h2 style='color:white; margin:8px 0 0 0;'>{get_risk_label(rf_pred)}</h2>
                     </div>""",
                     unsafe_allow_html=True
                 )
