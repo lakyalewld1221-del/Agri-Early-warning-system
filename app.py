@@ -49,7 +49,7 @@ def load_geojson():
     return geojson_data
 
 df = load_dataset()
-risk_df = load_risk_map()
+static_risk_df = load_risk_map()
 X_test = load_X_test()
 ethiopia_geojson = load_geojson()
 
@@ -78,33 +78,7 @@ region_encoder.fit(sorted(df['Region'].unique()))
 crop_encoder.fit(sorted(df['crop type'].unique()))
 
 # =====================================================
-# CROP IMAGES (Botanical Reference Close-ups)
-# =====================================================
-
-CROP_IMAGES = {
-    "Maize":   "https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/Simple_corn_on_the_cob.jpg/320px-Simple_corn_on_the_cob.jpg",
-    "Wheat":   "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/WheatBread_transparency.png/320px-WheatBread_transparency.png",
-    "Teff":    "https://upload.wikimedia.org/wikipedia/commons/thumb/4/45/Eragrostis_tef_-_teff_%28aka%29.jpg/320px-Eragrostis_tef_-_teff_%28aka%29.jpg",
-    "Barley":  "https://upload.wikimedia.org/wikipedia/commons/thumb/9/99/Barleyleaf.jpg/320px-Barleyleaf.jpg",
-    "Sorghum": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/84/Sorghum_crop.jpg/320px-Sorghum_crop.jpg",
-    "Millet":  "https://upload.wikimedia.org/wikipedia/commons/thumb/2/21/Panicum_miliaceum_USDA.jpg/320px-Panicum_miliaceum_USDA.jpg",
-    "Oats":    "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e4/Avena_sativa_-_K%C3%B6hler%E2%80%93s_Medizinal-Pflanzen-016.jpg/320px-Avena_sativa_-_K%C3%B6hler%E2%80%93s_Medizinal-Pflanzen-016.jpg",
-}
-
-DEFAULT_CROP_IMAGE = "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Farmland_at_sunset.jpg/320px-Farmland_at_sunset.jpg"
-
-def get_crop_image(crop_name):
-    """Return close-up reference image of the crop."""
-    if crop_name in CROP_IMAGES:
-        return CROP_IMAGES[crop_name]
-    for key in CROP_IMAGES:
-        if key.lower() in crop_name.lower() or crop_name.lower() in key.lower():
-            return CROP_IMAGES[key]
-    return DEFAULT_CROP_IMAGE
-
-# =====================================================
-# DYNAMIC CROP FIELD SIMULATOR (Generated in Matplotlib)
-# Renders realistic aerial field plot showing crop spacing based on risk
+# DYNAMIC CROP FIELD SIMULATOR (Matplotlib Generated)
 # =====================================================
 
 def render_crop_field_simulation(crop_name, risk_code):
@@ -123,17 +97,16 @@ def render_crop_field_simulation(crop_name, risk_code):
     if code == 2:  # High Risk — Plants are far apart, dry soil, severe drought
         grid_step = 2.4
         plant_size = 140
-        plant_color = "#b2973b"   # Wilted / dry yellowish-brown
+        plant_color = "#b2973b"
         plant_edge  = "#5d4037"
-        soil_color  = "#d7ccc8"   # Dry, arid, cracked soil tone
+        soil_color  = "#d7ccc8"
         spacing_text = "FAR APART (>150 cm spacing)"
         density_pct = "18% Canopy Cover"
         status_label = "🔴 HIGH RISK — SPARSE / WIDE SPACING"
-        marker_shape = "v"        # Drooping / wilted marker
+        marker_shape = "v"
         noise_level = 0.35
         num_plants_approx = "~15,000 plants/Ha"
 
-        # Generate drought soil cracks
         np.random.seed(42)
         for _ in range(7):
             cx = np.random.uniform(1.0, 9.0)
@@ -145,9 +118,9 @@ def render_crop_field_simulation(crop_name, risk_code):
     elif code == 1:  # Medium Risk — Moderate spacing
         grid_step = 1.35
         plant_size = 180
-        plant_color = "#8bc34a"   # Light olive / pale green
+        plant_color = "#8bc34a"
         plant_edge  = "#33691e"
-        soil_color  = "#a1887f"   # Moderately dry soil
+        soil_color  = "#a1887f"
         spacing_text = "MODERATE (75-90 cm spacing)"
         density_pct = "52% Canopy Cover"
         status_label = "🟡 MEDIUM RISK — MODERATE SPACING"
@@ -158,9 +131,9 @@ def render_crop_field_simulation(crop_name, risk_code):
     else:  # Low Risk (code 0) — Dense, lush, thriving
         grid_step = 0.8
         plant_size = 230
-        plant_color = "#2e7d32"   # Lush emerald green
+        plant_color = "#2e7d32"
         plant_edge  = "#1b5e20"
-        soil_color  = "#4e342e"   # Rich fertile moist loam
+        soil_color  = "#4e342e"
         spacing_text = "DENSE (30-40 cm close spacing)"
         density_pct = "94% Canopy Cover"
         status_label = "🟢 LOW RISK — OPTIMAL DENSE STAND"
@@ -171,7 +144,6 @@ def render_crop_field_simulation(crop_name, risk_code):
     ax.set_facecolor(soil_color)
     fig.patch.set_facecolor("#ffffff")
 
-    # Generate plant coordinates across the field
     xs = np.arange(0.6, 9.6, grid_step)
     ys = np.arange(0.6, 9.6, grid_step)
     x_coords, y_coords = [], []
@@ -179,7 +151,6 @@ def render_crop_field_simulation(crop_name, risk_code):
     np.random.seed(15)
     for x in xs:
         for y in ys:
-            # High risk has higher mortality / missing plants
             if code == 2 and np.random.rand() < 0.28:
                 continue
             elif code == 1 and np.random.rand() < 0.08:
@@ -189,7 +160,6 @@ def render_crop_field_simulation(crop_name, risk_code):
             x_coords.append(jitter_x)
             y_coords.append(jitter_y)
 
-    # Plot crop plants
     ax.scatter(
         x_coords, y_coords,
         s=plant_size,
@@ -198,16 +168,13 @@ def render_crop_field_simulation(crop_name, risk_code):
         linewidths=1.2,
         marker=marker_shape,
         alpha=0.92,
-        zorder=3,
-        label=f"{crop_name} Plants"
+        zorder=3
     )
 
     ax.set_xlim(0, 10)
     ax.set_ylim(0, 10)
     ax.set_xticks([])
     ax.set_yticks([])
-
-    # Grid planting lines
     ax.grid(True, color="#ffffff", alpha=0.18, linestyle="--")
 
     ax.set_title(
@@ -215,7 +182,6 @@ def render_crop_field_simulation(crop_name, risk_code):
         fontsize=11, fontweight="bold", color="#111111", pad=8
     )
 
-    # Annotation badge at bottom of plot
     ax.text(
         5, 0.45,
         f"Spacing: {spacing_text} | {density_pct} | {num_plants_approx}",
@@ -249,6 +215,79 @@ def get_field_density_description(risk_code):
         }
 
 # =====================================================
+# DYNAMIC REGIONAL RISK COMPUTATION
+# Relates crop type, year, and features across all regions
+# =====================================================
+
+def get_dynamic_regional_risk(crop_type, year):
+    """
+    Computes model-predicted food security risk and aggregates key features
+    across all Ethiopian regions for a specific crop and year.
+    """
+    regional_rows = []
+    crop_code = crop_encoder.transform([crop_type])[0]
+
+    for reg in sorted(df['Region'].unique()):
+        reg_code = region_encoder.transform([reg])[0]
+
+        mask = (df["Region"] == reg) & (df["crop type"] == crop_type) & (df["Year"] == year)
+        base = df[mask]
+
+        if base.empty:
+            base = df[(df["Region"] == reg) & (df["crop type"] == crop_type)]
+        if base.empty:
+            base = df[df["Region"] == reg]
+        if base.empty:
+            base = df
+
+        row_data = {
+            'Region': reg,
+            'crop type': crop_type,
+            'Year': year,
+            'Region_Code': reg_code,
+            'Crop_Code': crop_code,
+            'Area cultivated(Ha)': float(base['Area cultivated(Ha)'].median()),
+            'Production(kg)': float(base['Production(kg)'].median()),
+            'Yield_Growth_Rate': float(base['Yield_Growth_Rate'].median()),
+            'Production_Growth_Rate': float(base['Production_Growth_Rate'].median()),
+            'Area_Efficiency': float(base['Area_Efficiency'].median()),
+            'Regional_Avg_Yield': float(base['Regional_Avg_Yield'].median()),
+            'Crop_Avg_Yield': float(base['Crop_Avg_Yield'].median()),
+            'Yield_Anomaly': float(base['Yield_Anomaly'].median()),
+            'Rolling_Yield_Trend': float(base['Rolling_Yield_Trend'].median()),
+            'Yield_Stability': float(base['Yield_Stability'].median()),
+            'Production_Area_Ratio': float(base['Production_Area_Ratio'].median()),
+            'Early_Warning_Score': float(base['Early_Warning_Score'].median()),
+        }
+        regional_rows.append(row_data)
+
+    reg_df = pd.DataFrame(regional_rows)
+
+    feature_cols = [
+        'Region_Code', 'Crop_Code', 'Year',
+        'Area cultivated(Ha)', 'Production(kg)',
+        'Yield_Growth_Rate', 'Production_Growth_Rate', 'Area_Efficiency',
+        'Regional_Avg_Yield', 'Crop_Avg_Yield', 'Yield_Anomaly',
+        'Rolling_Yield_Trend', 'Yield_Stability', 'Production_Area_Ratio',
+        'Early_Warning_Score'
+    ]
+
+    reg_df[feature_cols] = reg_df[feature_cols].replace([np.inf, -np.inf], np.nan)
+    for col in feature_cols:
+        if reg_df[col].isnull().any():
+            g_med = df[col].replace([np.inf, -np.inf], np.nan).median()
+            reg_df[col] = reg_df[col].fillna(g_med if not np.isnan(g_med) else 0)
+
+    reg_df['Predicted_Risk'] = xgb_model.predict(reg_df[feature_cols])
+    reg_df['RF_Risk']        = rf_model.predict(reg_df[feature_cols])
+
+    cat_map = {0: 'Low Risk', 1: 'Medium Risk', 2: 'High Risk'}
+    reg_df['Risk_Category'] = reg_df['Predicted_Risk'].map(cat_map)
+    reg_df['Risk_Label']    = reg_df['Predicted_Risk'].apply(lambda c: get_risk_label(c))
+
+    return reg_df
+
+# =====================================================
 # HELPER FUNCTIONS
 # =====================================================
 
@@ -261,8 +300,6 @@ def get_risk_color(code):
 def get_risk_reasons(region, crop, year, risk_code, input_data):
     """Generate human-readable reasons and crop-specific recommendations."""
     reasons = []
-    rec = []
-
     yield_growth = float(input_data['Yield_Growth_Rate'].iloc[0])
     prod_growth  = float(input_data['Production_Growth_Rate'].iloc[0])
     yield_anom   = float(input_data['Yield_Anomaly'].iloc[0])
@@ -328,62 +365,32 @@ def get_risk_reasons(region, crop, year, risk_code, input_data):
                 "🌽 Use drought-tolerant maize varieties (e.g., DROUGHT-TEFF, DK8031).",
                 "💧 Apply supplemental irrigation during critical silking and tasseling stages.",
                 "🐛 Monitor for fall armyworm — spray with recommended pesticides immediately.",
-                "🌱 Apply nitrogen fertilizer in split doses to improve grain filling.",
             ]
         elif risk_code == 1:
             crop_rec = [
                 "🌽 Consider intercropping maize with legumes to improve soil fertility.",
                 "💧 Ensure consistent soil moisture especially during pollination.",
-                "🐛 Scout fields weekly for pest activity and diseases like gray leaf spot.",
-                "🌿 Apply mulching to retain soil moisture and reduce weed pressure.",
             ]
         else:
             crop_rec = [
                 "🌽 Expand maize cultivation to underutilized areas in the region.",
                 "🌱 Test improved hybrid maize varieties to boost yield potential.",
-                "📦 Invest in proper post-harvest storage to minimize losses.",
-            ]
-    elif "wheat" in crop_lower:
-        if risk_code == 2:
-            crop_rec = [
-                "🌾 Switch to drought-resistant wheat varieties like KAKABA or DANDA'A.",
-                "💧 Apply irrigation at critical growth stages — tillering and heading.",
-                "🍄 Monitor for wheat rust (stem, leaf, yellow) — apply fungicides early.",
-                "🌡️ Consider early planting to avoid terminal heat stress.",
-            ]
-        elif risk_code == 1:
-            crop_rec = [
-                "🌾 Apply phosphorus fertilizer at planting to improve root development.",
-                "💧 Optimize irrigation scheduling using soil moisture monitoring.",
-                "🍄 Use disease-resistant wheat varieties to reduce fungicide dependency.",
-                "🌿 Practice crop rotation with legumes to improve soil nitrogen.",
-            ]
-        else:
-            crop_rec = [
-                "🌾 Promote use of certified wheat seed to ensure high germination.",
-                "📈 Explore market linkages for wheat surplus in stable years.",
-                "🌱 Maintain soil health through balanced fertilization programs.",
             ]
     else:
         if risk_code == 2:
             crop_rec = [
                 f"🌱 Use improved {crop} varieties adapted to local conditions.",
                 f"💧 Apply supplemental irrigation during critical growth stages of {crop}.",
-                f"🐛 Increase pest and disease monitoring for {crop} fields.",
-                f"🧑‍🌾 Provide emergency agronomic support to {crop} farmers in {region}.",
             ]
         elif risk_code == 1:
             crop_rec = [
                 f"🌱 Apply recommended fertilizers for {crop} production in {region}.",
                 f"💧 Optimize water management practices for {crop} cultivation.",
-                f"🌿 Practice crop rotation to improve soil health for {crop}.",
-                f"📊 Monitor {crop} fields closely for pest and disease outbreaks.",
             ]
         else:
             crop_rec = [
                 f"🌱 Continue good agricultural practices for {crop} in {region}.",
                 f"📈 Explore yield improvement opportunities for {crop}.",
-                f"📦 Invest in post-harvest handling to reduce {crop} losses.",
             ]
 
     rec = base_rec + crop_rec
@@ -486,13 +493,11 @@ This dashboard predicts food security risk for Ethiopian regions using machine l
 
 👈 **Use the sidebar to navigate between pages.**
 
-### How to use:
-1. Go to **🤖 Prediction** page
-2. Select **Region**, **Crop Type**, and **Year**
-3. Click **Predict Risk**
-4. View results compared between XGBoost and Random Forest
-5. Observe the **dynamic generated crop field** showing plant spacing and canopy density corresponding to the risk level
-6. Explore other pages for deeper analysis
+### Key Features:
+1. **🤖 Prediction**: Select Region, Crop Type, and Year to forecast food security risk with dynamic field stand simulation.
+2. **🔍 Explainable AI**: Understand feature contributions through SHAP value waterfall & summary charts.
+3. **📊 Risk Analysis**: Dynamic regional summaries and feature breakdowns related to chosen crops and years.
+4. **🗺️ Ethiopia Risk Map**: High-resolution geospatial food security mapping.
 """)
 
     st.markdown("---")
@@ -502,7 +507,7 @@ This dashboard predicts food security risk for Ethiopian regions using machine l
     col3.metric("🌾 Crop Types", df["crop type"].nunique())
 
 # =====================================================
-# PREDICTION PAGE
+# PREDICTION PAGE (Without close-up crop image)
 # =====================================================
 
 elif page == "🤖 Prediction":
@@ -513,22 +518,26 @@ elif page == "🤖 Prediction":
 
     col1, col2, col3 = st.columns(3)
     with col1:
-        selected_region = st.selectbox("🌍 Region", options=sorted(df["Region"].unique()))
+        default_reg = st.session_state.get('region', sorted(df["Region"].unique())[0])
+        selected_region = st.selectbox("🌍 Region", options=sorted(df["Region"].unique()), index=sorted(df["Region"].unique()).index(default_reg))
     with col2:
-        selected_crop = st.selectbox("🌾 Crop Type", options=sorted(df["crop type"].unique()))
+        default_crp = st.session_state.get('crop', sorted(df["crop type"].unique())[0])
+        selected_crop = st.selectbox("🌾 Crop Type", options=sorted(df["crop type"].unique()), index=sorted(df["crop type"].unique()).index(default_crp))
     with col3:
-        selected_year = st.selectbox("📅 Year", options=sorted(df["Year"].unique(), reverse=True))
+        year_list = sorted(df["Year"].unique(), reverse=True)
+        default_yr = st.session_state.get('year', year_list[0])
+        selected_year = st.selectbox("📅 Year", options=year_list, index=year_list.index(default_yr))
+
+    st.session_state['region'] = selected_region
+    st.session_state['crop']   = selected_crop
+    st.session_state['year']   = selected_year
 
     st.markdown("---")
-    img_col, land_col, info_col = st.columns([1, 1.2, 1.8])
-    with img_col:
-        crop_img_url = get_crop_image(selected_crop)
-        st.image(crop_img_url, caption=f"🌾 {selected_crop} Reference", use_container_width=True)
+    land_col, info_col = st.columns([1.2, 1.8])
     with land_col:
-        # Generated baseline simulation
         baseline_fig = render_crop_field_simulation(selected_crop, risk_code=0)
         st.pyplot(baseline_fig, use_container_width=True)
-        st.caption("ℹ️ *Field simulation: will dynamically update plant spacing after prediction.*")
+        st.caption("ℹ️ *Field stand simulation: plant spacing will dynamically update to reflect predicted risk.*")
     with info_col:
         st.markdown(f"### Selected Input")
         st.markdown(f"- 🌍 **Region:** {selected_region}")
@@ -568,16 +577,9 @@ elif page == "🤖 Prediction":
         st.markdown(f"**Region:** {selected_region} | **Crop:** {selected_crop} | **Year:** {selected_year}")
         st.markdown("---")
 
-        # Display results with generated crop field simulation
-        res_img_col, res_land_col, res_results_col = st.columns([1, 1.3, 1.7])
-        with res_img_col:
-            st.image(
-                get_crop_image(selected_crop),
-                caption=f"🌾 {selected_crop} Reference",
-                use_container_width=True
-            )
+        # Two-column layout: Left = Dynamic Field Simulation, Right = Model Risk Results
+        res_land_col, res_results_col = st.columns([1.2, 1.8])
         with res_land_col:
-            # Dynamically generated field plot based on predicted risk
             field_fig = render_crop_field_simulation(selected_crop, risk_code=xgb_pred)
             st.pyplot(field_fig, use_container_width=True)
 
@@ -595,7 +597,7 @@ elif page == "🤖 Prediction":
             with col1:
                 xgb_color = get_risk_color(xgb_pred)
                 st.markdown(
-                    f"""<div style='background-color:{xgb_color}; padding:25px 15px;
+                    f"""<div style='background-color:{xgb_color}; padding:30px 15px;
                     border-radius:12px; text-align:center;'>
                     <h3 style='color:white; margin:0;'>🚀 XGBoost</h3>
                     <h2 style='color:white; margin:8px 0 0 0;'>{get_risk_label(xgb_pred)}</h2>
@@ -605,7 +607,7 @@ elif page == "🤖 Prediction":
             with col2:
                 rf_color = get_risk_color(rf_pred)
                 st.markdown(
-                    f"""<div style='background-color:{rf_color}; padding:25px 15px;
+                    f"""<div style='background-color:{rf_color}; padding:30px 15px;
                     border-radius:12px; text-align:center;'>
                     <h3 style='color:white; margin:0;'>🌳 Random Forest</h3>
                     <h2 style='color:white; margin:8px 0 0 0;'>{get_risk_label(rf_pred)}</h2>
@@ -797,78 +799,50 @@ elif page == "🔍 Explainable AI":
     )
 
 # =====================================================
-# RISK ANALYSIS PAGE
+# RISK ANALYSIS PAGE (Dynamic & Related to Crop & Year)
 # =====================================================
 
 elif page == "📊 Risk Analysis":
 
     st.title("📊 Food Security Risk Analysis")
+    st.write("Examine risk forecasts and feature dynamics dynamically across Ethiopian regions.")
     st.markdown("---")
 
-    if 'predicted' in st.session_state:
-        region   = st.session_state['region']
-        crop     = st.session_state['crop']
-        year     = st.session_state['year']
-        xgb_pred = st.session_state['xgb_pred']
-        rf_pred  = st.session_state['rf_pred']
+    col_sel1, col_sel2 = st.columns(2)
+    with col_sel1:
+        crop_options = sorted(df["crop type"].unique())
+        cur_crop = st.session_state.get('crop', crop_options[0])
+        idx_crop = crop_options.index(cur_crop) if cur_crop in crop_options else 0
+        analysis_crop = st.selectbox("🌾 Filter by Crop Type", crop_options, index=idx_crop, key="analysis_crop_select")
+    with col_sel2:
+        year_options = sorted(df["Year"].unique(), reverse=True)
+        cur_year = st.session_state.get('year', year_options[0])
+        idx_year = year_options.index(cur_year) if cur_year in year_options else 0
+        analysis_year = st.selectbox("📅 Filter by Year", year_options, index=idx_year, key="analysis_year_select")
 
-        st.markdown(f"Analysis for: **{region}** | **{crop}** | **{year}**")
-        st.markdown("---")
+    st.session_state['crop'] = analysis_crop
+    st.session_state['year'] = analysis_year
 
-        st.subheader("🆚 Model Comparison")
-        comp_df = pd.DataFrame({
-            "Model":          ["🚀 XGBoost", "🌳 Random Forest"],
-            "Predicted Risk": [get_risk_label(xgb_pred), get_risk_label(rf_pred)],
-            "Risk Level":     [int(xgb_pred), int(rf_pred)]
-        })
-        st.dataframe(comp_df, use_container_width=True)
-
-        st.markdown("---")
-
-        st.subheader(f"📈 Risk Trend: {region} - {crop} Over Years")
-        trend_df = df[
-            (df["Region"] == region) &
-            (df["crop type"] == crop)
-        ].copy()
-
-        if not trend_df.empty:
-            model_features = [
-                'Region_Code', 'Crop_Code', 'Year',
-                'Area cultivated(Ha)', 'Production(kg)',
-                'Yield_Growth_Rate', 'Production_Growth_Rate', 'Area_Efficiency',
-                'Regional_Avg_Yield', 'Crop_Avg_Yield', 'Yield_Anomaly',
-                'Rolling_Yield_Trend', 'Yield_Stability', 'Production_Area_Ratio',
-                'Early_Warning_Score'
-            ]
-            trend_df[model_features] = trend_df[model_features].replace([np.inf, -np.inf], np.nan)
-            for col in model_features:
-                trend_df[col] = trend_df[col].fillna(trend_df[col].median())
-
-            trend_df['XGBoost_Risk'] = xgb_model.predict(trend_df[model_features])
-            trend_df['RF_Risk']      = rf_model.predict(trend_df[model_features])
-
-            yearly = trend_df.groupby('Year')[['XGBoost_Risk', 'RF_Risk']].mean().reset_index()
-
-            fig = px.line(
-                yearly, x='Year',
-                y=['XGBoost_Risk', 'RF_Risk'],
-                title=f"Risk Trend for {region} - {crop}",
-                markers=True,
-                labels={"value": "Risk Level (0=Low, 1=Med, 2=High)", "variable": "Model"}
-            )
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.warning("No data found for this Region and Crop combination.")
-
-    else:
-        st.info("💡 Go to **🤖 Prediction** page first and make a prediction.")
+    dyn_risk_df = get_dynamic_regional_risk(analysis_crop, analysis_year)
 
     st.markdown("---")
-    st.subheader("🌍 Regional Risk Summary")
-    st.dataframe(risk_df, use_container_width=True)
 
-    fig2 = px.bar(
-        risk_df,
+    high_count = (dyn_risk_df['Predicted_Risk'] == 2).sum()
+    med_count  = (dyn_risk_df['Predicted_Risk'] == 1).sum()
+    low_count  = (dyn_risk_df['Predicted_Risk'] == 0).sum()
+    avg_ews    = dyn_risk_df['Early_Warning_Score'].mean()
+
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("🔴 High Risk Regions", f"{high_count} / {len(dyn_risk_df)}")
+    m2.metric("🟡 Medium Risk Regions", f"{med_count} / {len(dyn_risk_df)}")
+    m3.metric("🟢 Low Risk Regions", f"{low_count} / {len(dyn_risk_df)}")
+    m4.metric("🚨 Avg Early Warning Score", f"{avg_ews:.2f}")
+
+    st.markdown("---")
+
+    st.subheader(f"🌍 Food Security Risk by Region for {analysis_crop} ({analysis_year})")
+    fig_dyn_bar = px.bar(
+        dyn_risk_df.sort_values('Predicted_Risk', ascending=False),
         x='Region',
         y='Predicted_Risk',
         color='Risk_Category',
@@ -877,37 +851,108 @@ elif page == "📊 Risk Analysis":
             'Medium Risk': '#fd7e14',
             'High Risk':   '#dc3545'
         },
-        title='Average Food Security Risk by Region'
+        hover_data={'Predicted_Risk': True, 'Risk_Category': True, 'Early_Warning_Score': ':.2f', 'Yield_Growth_Rate': ':.2f'},
+        labels={'Predicted_Risk': 'Risk Level (0=Low, 1=Med, 2=High)', 'Region': 'Ethiopian Region'},
+        title=f"Predicted Food Security Risk Across Regions for {analysis_crop} in {analysis_year}"
     )
-    st.plotly_chart(fig2, use_container_width=True)
+    fig_dyn_bar.update_layout(yaxis=dict(tickmode='array', tickvals=[0, 1, 2], ticktext=['Low (0)', 'Medium (1)', 'High (2)']))
+    st.plotly_chart(fig_dyn_bar, use_container_width=True)
+
+    st.markdown("---")
+
+    st.subheader("🔬 Feature Dynamics & Risk Correlation")
+    st.caption("How Yield Growth Rate and Early Warning Score interact to influence regional risk.")
+
+    fig_scatter = px.scatter(
+        dyn_risk_df,
+        x='Yield_Growth_Rate',
+        y='Early_Warning_Score',
+        color='Risk_Category',
+        size='Area cultivated(Ha)',
+        hover_name='Region',
+        color_discrete_map={
+            'Low Risk':    '#28a745',
+            'Medium Risk': '#fd7e14',
+            'High Risk':   '#dc3545'
+        },
+        labels={'Yield_Growth_Rate': 'Yield Growth Rate', 'Early_Warning_Score': 'Early Warning Score'},
+        title=f"Regional Feature Dynamics: Early Warning Score vs. Yield Growth Rate ({analysis_crop}, {analysis_year})"
+    )
+    st.plotly_chart(fig_scatter, use_container_width=True)
+
+    st.markdown("---")
+
+    selected_reg = st.session_state.get('region', dyn_risk_df['Region'].iloc[0])
+    st.subheader(f"📈 Historical Risk Trend for Selected Region: {selected_reg} ({analysis_crop})")
+
+    trend_df = df[
+        (df["Region"] == selected_reg) &
+        (df["crop type"] == analysis_crop)
+    ].copy()
+
+    if not trend_df.empty:
+        model_features = [
+            'Region_Code', 'Crop_Code', 'Year',
+            'Area cultivated(Ha)', 'Production(kg)',
+            'Yield_Growth_Rate', 'Production_Growth_Rate', 'Area_Efficiency',
+            'Regional_Avg_Yield', 'Crop_Avg_Yield', 'Yield_Anomaly',
+            'Rolling_Yield_Trend', 'Yield_Stability', 'Production_Area_Ratio',
+            'Early_Warning_Score'
+        ]
+        trend_df[model_features] = trend_df[model_features].replace([np.inf, -np.inf], np.nan)
+        for col in model_features:
+            trend_df[col] = trend_df[col].fillna(trend_df[col].median())
+
+        trend_df['XGBoost_Risk'] = xgb_model.predict(trend_df[model_features])
+        trend_df['RF_Risk']      = rf_model.predict(trend_df[model_features])
+
+        yearly = trend_df.groupby('Year')[['XGBoost_Risk', 'RF_Risk']].mean().reset_index()
+
+        fig_trend = px.line(
+            yearly, x='Year',
+            y=['XGBoost_Risk', 'RF_Risk'],
+            title=f"Multi-Year Risk Trajectory: {selected_reg} ({analysis_crop})",
+            markers=True,
+            labels={"value": "Risk Level (0=Low, 1=Med, 2=High)", "variable": "Model"}
+        )
+        st.plotly_chart(fig_trend, use_container_width=True)
+    else:
+        st.info(f"No multi-year historical records found for {selected_reg} - {analysis_crop}.")
+
+    st.markdown("---")
+
+    st.subheader(f"📋 Regional Risk Summary & Key Indicators ({analysis_crop}, {analysis_year})")
+    display_cols = [
+        'Region', 'Risk_Label', 'Early_Warning_Score', 'Yield_Growth_Rate',
+        'Area_Efficiency', 'Yield_Anomaly', 'Production(kg)', 'Area cultivated(Ha)'
+    ]
+    st.dataframe(
+        dyn_risk_df[display_cols].sort_values('Early_Warning_Score', ascending=False).reset_index(drop=True),
+        use_container_width=True
+    )
 
 # =====================================================
-# ETHIOPIA RISK MAP PAGE
+# ETHIOPIA RISK MAP PAGE (Dynamic with Crop & Year)
 # =====================================================
 
 elif page == "🗺️ Ethiopia Risk Map":
 
     st.title("🗺️ Ethiopia Food Security Risk Map")
+    st.write("Geospatial risk mapping dynamically calculated for the selected crop and year.")
     st.markdown("---")
 
-    if 'predicted' in st.session_state:
-        region   = st.session_state['region']
-        crop     = st.session_state['crop']
-        year     = st.session_state['year']
-        xgb_pred = st.session_state['xgb_pred']
-        st.markdown(
-            f"Selected: **{region}** | **{crop}** | **{year}** → "
-            f"Predicted Risk: **{get_risk_label(xgb_pred)}**"
-        )
-        st.markdown("---")
+    map_c1, map_c2 = st.columns(2)
+    with map_c1:
+        crop_opts = sorted(df["crop type"].unique())
+        map_crop = st.selectbox("🌾 Crop Type", crop_opts, index=crop_opts.index(st.session_state.get('crop', crop_opts[0])), key="map_crop_sel")
+    with map_c2:
+        year_opts = sorted(df["Year"].unique(), reverse=True)
+        map_year = st.selectbox("📅 Year", year_opts, index=year_opts.index(st.session_state.get('year', year_opts[0])), key="map_year_sel")
 
-    st.markdown("""
-    <div style='display:flex; gap:20px; margin-bottom:16px;'>
-        <span style='background:#28a745;color:white;padding:6px 16px;border-radius:8px;font-weight:700;'>🟢 Low Risk</span>
-        <span style='background:#fd7e14;color:white;padding:6px 16px;border-radius:8px;font-weight:700;'>🟡 Medium Risk</span>
-        <span style='background:#dc3545;color:white;padding:6px 16px;border-radius:8px;font-weight:700;'>🔴 High Risk</span>
-    </div>
-    """, unsafe_allow_html=True)
+    st.session_state['crop'] = map_crop
+    st.session_state['year'] = map_year
+
+    map_df = get_dynamic_regional_risk(map_crop, map_year)
 
     REGION_COORDS = {
         "Tigray":            (14.0323, 38.3142),
@@ -932,7 +977,6 @@ elif page == "🗺️ Ethiopia Risk Map":
                 return coords
         return (9.145, 40.489)
 
-    map_df = risk_df.copy()
     map_df['lat'] = map_df['Region'].apply(lambda r: get_region_coords(r)[0])
     map_df['lon'] = map_df['Region'].apply(lambda r: get_region_coords(r)[1])
     map_df['color'] = map_df['Risk_Category'].map({
@@ -940,12 +984,9 @@ elif page == "🗺️ Ethiopia Risk Map":
         'Medium Risk': '#fd7e14',
         'High Risk':   '#dc3545'
     }).fillna('#6c757d')
-    map_df['risk_code'] = map_df['Risk_Category'].apply(
-        lambda c: 0 if 'Low' in c else (1 if 'Medium' in c else 2)
-    )
     map_df['size'] = 18
 
-    st.subheader("🗺️ Ethiopia — Full Country Risk Map")
+    st.subheader(f"🗺️ Ethiopia — Geospatial Risk Map ({map_crop}, {map_year})")
 
     fig_main = px.scatter_geo(
         map_df,
@@ -959,11 +1000,11 @@ elif page == "🗺️ Ethiopia Risk Map":
         size='size',
         size_max=28,
         hover_name='Region',
-        hover_data={'Risk_Category': True, 'Predicted_Risk': ':.2f',
+        hover_data={'Risk_Category': True, 'Predicted_Risk': True, 'Early_Warning_Score': ':.2f',
                     'lat': False, 'lon': False, 'size': False},
         text='Region',
-        labels={'Risk_Category': 'Risk Level', 'Predicted_Risk': 'Risk Score'},
-        title="Ethiopia Food Security Risk — All Regions",
+        labels={'Risk_Category': 'Risk Level', 'Predicted_Risk': 'Risk Code'},
+        title=f"Ethiopia Food Security Risk Distribution — {map_crop} ({map_year})",
     )
 
     fig_main.update_traces(
@@ -990,8 +1031,7 @@ elif page == "🗺️ Ethiopia Risk Map":
     fig_main.update_layout(
         margin={"r": 0, "t": 50, "l": 0, "b": 0},
         height=600,
-        legend=dict(orientation="h", yanchor="bottom", y=0.01,
-                    xanchor="right", x=1),
+        legend=dict(orientation="h", yanchor="bottom", y=0.01, xanchor="right", x=1),
         geo=dict(bgcolor="rgba(0,0,0,0)"),
     )
 
@@ -999,160 +1039,9 @@ elif page == "🗺️ Ethiopia Risk Map":
 
     st.markdown("---")
 
-    st.subheader("📍 Individual Region Risk Cards")
-
-    all_regions = sorted(map_df['Region'].unique())
-    cards_per_row = 3
-
-    for row_start in range(0, len(all_regions), cards_per_row):
-        cols = st.columns(cards_per_row)
-        for col_idx, col in enumerate(cols):
-            r_idx = row_start + col_idx
-            if r_idx >= len(all_regions):
-                break
-            reg = all_regions[r_idx]
-            row_data = map_df[map_df['Region'] == reg].iloc[0]
-            color     = row_data['color']
-            risk_cat  = row_data['Risk_Category']
-            risk_val  = row_data['Predicted_Risk']
-            risk_code_r = int(row_data['risk_code'])
-            lat, lon  = row_data['lat'], row_data['lon']
-
-            with col:
-                reg_df = pd.DataFrame({
-                    'Region':       [reg],
-                    'lat':          [lat],
-                    'lon':          [lon],
-                    'Risk_Category':[risk_cat],
-                    'size':         [20],
-                })
-
-                fig_mini = px.scatter_geo(
-                    reg_df,
-                    lat='lat', lon='lon',
-                    color='Risk_Category',
-                    color_discrete_map={
-                        'Low Risk':    '#28a745',
-                        'Medium Risk': '#fd7e14',
-                        'High Risk':   '#dc3545'
-                    },
-                    size='size', size_max=22,
-                    hover_name='Region',
-                    text='Region',
-                )
-                fig_mini.update_traces(
-                    textposition='top center',
-                    textfont=dict(size=10, color='black'),
-                    marker=dict(opacity=0.9, line=dict(width=1, color='white'))
-                )
-                fig_mini.update_geos(
-                    visible=True,
-                    resolution=50,
-                    scope="africa",
-                    showland=True,   landcolor="#f5f4e8",
-                    showocean=True,  oceancolor="#cce5ff",
-                    showcoastlines=True, coastlinecolor="#aaa",
-                    showcountries=True,  countrycolor="#bbb",
-                    lonaxis_range=[lon - 3, lon + 3],
-                    lataxis_range=[lat - 3, lat + 3],
-                )
-                fig_mini.update_layout(
-                    margin={"r": 0, "t": 0, "l": 0, "b": 0},
-                    height=180,
-                    showlegend=False,
-                    paper_bgcolor="rgba(0,0,0,0)",
-                )
-                st.plotly_chart(fig_mini, use_container_width=True,
-                                key=f"mini_{reg}")
-
-                st.markdown(
-                    f"""<div style='background:{color};padding:8px;
-                    border-radius:8px;text-align:center;margin-top:-8px;'>
-                    <b style='color:white;font-size:13px;'>📍 {reg}</b><br>
-                    <span style='color:white;font-size:12px;'>{get_risk_label(risk_code_r)}</span><br>
-                    <span style='color:white;font-size:11px;'>Score: {risk_val:.2f}</span>
-                    </div>""",
-                    unsafe_allow_html=True
-                )
-                st.markdown(" ")
-
-    st.markdown("---")
-
-    if 'predicted' in st.session_state:
-        sel_region = st.session_state['region']
-        st.subheader(f"📌 Your Selected Region: {sel_region}")
-
-        sel_data = map_df[map_df['Region'] == sel_region]
-        if not sel_data.empty:
-            s         = sel_data.iloc[0]
-            color     = s['color']
-            risk_val  = s['Predicted_Risk']
-            risk_code_s = int(s['risk_code'])
-            s_lat, s_lon = s['lat'], s['lon']
-
-            hl1, hl2 = st.columns([1, 1])
-            with hl1:
-                sel_df = pd.DataFrame({
-                    'Region':       [sel_region],
-                    'lat':          [s_lat],
-                    'lon':          [s_lon],
-                    'Risk_Category':[s['Risk_Category']],
-                    'size':         [25],
-                })
-                fig_sel = px.scatter_geo(
-                    sel_df,
-                    lat='lat', lon='lon',
-                    color='Risk_Category',
-                    color_discrete_map={
-                        'Low Risk':    '#28a745',
-                        'Medium Risk': '#fd7e14',
-                        'High Risk':   '#dc3545'
-                    },
-                    size='size', size_max=30,
-                    hover_name='Region',
-                    text='Region',
-                )
-                fig_sel.update_traces(
-                    textposition='top center',
-                    textfont=dict(size=12, color='black'),
-                    marker=dict(opacity=1.0, line=dict(width=2, color='white'))
-                )
-                fig_sel.update_geos(
-                    visible=True,
-                    resolution=50,
-                    scope="africa",
-                    showland=True,      landcolor="#f5f4e8",
-                    showocean=True,     oceancolor="#cce5ff",
-                    showcoastlines=True, coastlinecolor="#aaa",
-                    showcountries=True,  countrycolor="#bbb",
-                    lonaxis_range=[s_lon - 4, s_lon + 4],
-                    lataxis_range=[s_lat - 4, s_lat + 4],
-                )
-                fig_sel.update_layout(
-                    margin={"r": 0, "t": 0, "l": 0, "b": 0},
-                    height=300, showlegend=False
-                )
-                st.plotly_chart(fig_sel, use_container_width=True,
-                                key="selected_region_highlight")
-
-            with hl2:
-                st.markdown(
-                    f"""<div style='background:{color};padding:35px;
-                    border-radius:14px;text-align:center;margin-top:20px;'>
-                    <h2 style='color:white;margin:0;'>📍 {sel_region}</h2>
-                    <h1 style='color:white;margin:12px 0 0 0;'>{get_risk_label(risk_code_s)}</h1>
-                    <p style='color:white;margin:8px 0 0 0;font-size:18px;'>
-                    Risk Score: {risk_val:.2f}</p>
-                    </div>""",
-                    unsafe_allow_html=True
-                )
-        else:
-            st.info(f"No risk data available for {sel_region}.")
-
-    st.markdown("---")
-    st.subheader("📋 All Regions Risk Table")
+    st.subheader("📋 Regional Risk Table")
     st.dataframe(
-        risk_df.sort_values("Predicted_Risk", ascending=False),
+        map_df[['Region', 'Risk_Label', 'Early_Warning_Score', 'Yield_Growth_Rate', 'Area_Efficiency', 'Production(kg)']].sort_values("Early_Warning_Score", ascending=False),
         use_container_width=True
     )
 
@@ -1170,11 +1059,10 @@ This application predicts food security risk across Ethiopian regions using mach
 
 **How it works:**
 1. User selects **Region**, **Crop Type**, and **Year**
-2. The system fills remaining features from historical data medians
-3. Both **XGBoost** and **Random Forest** models predict the risk level
-4. Results are shown as **Low**, **Medium**, or **High** risk
-5. Crop field canopy density and spacing dynamically adapt to the risk level
-6. SHAP explains which features drove the prediction with reasons and recommendations
+2. Machine learning models (**XGBoost** and **Random Forest**) predict food security risk
+3. Dynamic aerial field canopy simulation depicts crop spacing directly linked to risk
+4. SHAP provides explainability and actionable agronomic recommendations
+5. Risk Analysis & Ethiopia Maps dynamically correlate with selected crop types and years
 
 **Models:**
 - 🚀 XGBoost
