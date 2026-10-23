@@ -15,8 +15,6 @@ import io
 from contextlib import redirect_stdout
 import json
 import seaborn as sns
-from pathlib import Path
-from urllib.request import Request, urlopen
 
 # =====================================================
 # PAGE CONFIGURATION
@@ -80,7 +78,7 @@ region_encoder.fit(sorted(df['Region'].unique()))
 crop_encoder.fit(sorted(df['crop type'].unique()))
 
 # =====================================================
-# CROP IMAGES (using free Unsplash URLs)
+# CROP IMAGES (Botanical Reference Close-ups)
 # =====================================================
 
 CROP_IMAGES = {
@@ -95,129 +93,104 @@ CROP_IMAGES = {
 
 DEFAULT_CROP_IMAGE = "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Farmland_at_sunset.jpg/320px-Farmland_at_sunset.jpg"
 
-# =====================================================
-# CROP LAND/ACRES IMAGES — fields filled with each crop
-# =====================================================
-
-CROP_LAND_IMAGES = {
-    # Maize — a field full of maize/corn plants
-    "Maize":   "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9d/Cornfield_banner.jpg/640px-Cornfield_banner.jpg",
-    # Wheat — a golden wheat field
-    "Wheat":   "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7c/Wheat_field_in_Dorset%2C_England_-_July_2009.jpg/640px-Wheat_field_in_Dorset%2C_England_-_July_2009.jpg",
-    # Teff — a teff crop field
-    "Teff":    "https://upload.wikimedia.org/wikipedia/commons/thumb/4/45/Eragrostis_tef_-_teff_%28aka%29.jpg/640px-Eragrostis_tef_-_teff_%28aka%29.jpg",
-    # Barley — a barley field
-    "Barley":  "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Barley_field.jpg/640px-Barley_field.jpg",
-    # Sorghum — a sorghum crop field
-    "Sorghum": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/34/Sorghum_crop_Andhra_Pradesh_India.jpg/640px-Sorghum_crop_Andhra_Pradesh_India.jpg",
-    # Millet — a millet field
-    "Millet":  "https://upload.wikimedia.org/wikipedia/commons/thumb/2/21/Panicum_miliaceum_USDA.jpg/640px-Panicum_miliaceum_USDA.jpg",
-    # Oats — an oats field
-    "Oats":    "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e4/Avena_sativa_-_K%C3%B6hler%E2%80%93s_Medizinal-Pflanzen-016.jpg/640px-Avena_sativa_-_K%C3%B6hler%E2%80%93s_Medizinal-Pflanzen-016.jpg",
-}
-
-DEFAULT_LAND_IMAGE = "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Farmland_at_sunset.jpg/640px-Farmland_at_sunset.jpg"
-
-def _normalize_crop_name(crop_name):
-    """Normalize crop labels so names like 'maize ' and 'MAIZE' match."""
-    return str(crop_name).strip().lower()
-
-def get_crop_land_image(crop_name):
-    """Return a field-image URL, matching crop names case-insensitively."""
-    crop_lower = _normalize_crop_name(crop_name)
-    for key, url in CROP_LAND_IMAGES.items():
-        key_lower = _normalize_crop_name(key)
-        if crop_lower == key_lower or key_lower in crop_lower or crop_lower in key_lower:
-            return url
-    return DEFAULT_LAND_IMAGE
-
-@st.cache_data(show_spinner=False, ttl=3600)
-def _download_image(url):
-    """Download and cache image bytes; return None if the URL is unavailable."""
-    try:
-        request = Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urlopen(request, timeout=6) as response:
-            content_type = response.headers.get("Content-Type", "")
-            image_bytes = response.read()
-            if response.status == 200 and "image" in content_type.lower() and image_bytes:
-                return image_bytes
-    except Exception:
-        return None
-    return None
-
-def _local_crop_field_path(crop_name):
-    """Find the bundled local field image for the selected crop."""
-    crop = _normalize_crop_name(crop_name)
-    image_map = {
-        "maize": "maize_field.png",
-        "wheat": "wheat_field.png",
-        "teff": "teff_field.png",
-        "barley": "barley_field.png",
-        "sorghum": "sorghum_field.png",
-        "millet": "millet_field.png",
-        "oats": "oats_field.png",
-    }
-    base_dir = Path(__file__).resolve().parent
-    for crop_key, filename in image_map.items():
-        if crop_key in crop:
-            path = base_dir / filename
-            if path.is_file():
-                return path
-    fallback = base_dir / "maize_field.png"
-    return fallback if fallback.is_file() else None
-
-
-def _make_valid_fallback_png(crop_name):
-    """Create a real PNG fallback using Pillow (never pass SVG bytes to st.image)."""
-    from PIL import Image, ImageDraw
-    crop = str(crop_name or "Crop").strip()[:35]
-    img = Image.new("RGB", (900, 420), (188, 225, 242))
-    draw = ImageDraw.Draw(img)
-    draw.rectangle((0, 175, 900, 420), fill=(133, 96, 49))
-    draw.polygon([(0, 200), (150, 125), (280, 205), (430, 115), (610, 200), (760, 140), (900, 190), (900, 250), (0, 250)], fill=(120, 164, 100))
-    # Draw repeated crop rows and green plants.
-    for row in range(5):
-        y = 235 + row * 34
-        for col in range(18):
-            x = 20 + col * 50 + (row % 2) * 20
-            draw.line((x, y, x, y + 40), fill=(42, 100, 36), width=4)
-            draw.ellipse((x-15, y+2, x+2, y+13), fill=(58, 139, 49))
-            draw.ellipse((x, y+10, x+17, y+21), fill=(70, 151, 55))
-    draw.rounded_rectangle((18, 15, 882, 75), radius=12, fill=(255, 255, 255))
-    draw.text((450, 35), f"{crop} field illustration", fill=(31, 83, 39), anchor="mm")
-    out = io.BytesIO()
-    img.save(out, format="PNG")
-    return out.getvalue()
-
-
-def show_crop_land_image(crop_name, caption, use_container_width=True):
-    """Display the selected crop's bundled PNG; use a valid generated PNG as fallback."""
-    local_path = _local_crop_field_path(crop_name)
-    if local_path is not None:
-        try:
-            # Verify the file is a readable image before asking Streamlit to display it.
-            from PIL import Image
-            with Image.open(local_path) as image:
-                image.verify()
-            st.image(str(local_path), caption=caption, use_container_width=use_container_width)
-            return
-        except Exception:
-            pass
-
-    # PNG bytes are generated locally, so this works even if network images are unavailable.
-    fallback_png = _make_valid_fallback_png(crop_name)
-    st.image(fallback_png, caption=f"{caption} (illustration fallback)",
-             use_container_width=use_container_width)
-
-
 def get_crop_image(crop_name):
-    """Return close-up image of the crop."""
+    """Return close-up reference image of the crop."""
     if crop_name in CROP_IMAGES:
         return CROP_IMAGES[crop_name]
     for key in CROP_IMAGES:
         if key.lower() in crop_name.lower() or crop_name.lower() in key.lower():
             return CROP_IMAGES[key]
     return DEFAULT_CROP_IMAGE
+
+# =====================================================
+# CROP FIELD / LAND IMAGES — DYNAMIC BY CROP & RISK LEVEL
+# Spacing:
+# 0 (Low Risk):    Dense, lush, closely spaced healthy crop stand
+# 1 (Medium Risk): Moderate density, patchy or partially spaced crops
+# 2 (High Risk):   Sparse, widely spaced plants, stunted / drought-stressed field
+# =====================================================
+
+CROP_LAND_IMAGES = {
+    "Maize": {
+        0: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9d/Cornfield_banner.jpg/640px-Cornfield_banner.jpg",
+        1: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b2/Sweet_corn_field.jpg/640px-Sweet_corn_field.jpg",
+        2: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Drought_stress_on_young_corn.jpg/640px-Drought_stress_on_young_corn.jpg",
+    },
+    "Wheat": {
+        0: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7c/Wheat_field_in_Dorset%2C_England_-_July_2009.jpg/640px-Wheat_field_in_Dorset%2C_England_-_July_2009.jpg",
+        1: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Barley_field.jpg/640px-Barley_field.jpg",
+        2: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/18/Drought_in_Australia_2006.jpg/640px-Drought_in_Australia_2006.jpg",
+    },
+    "Teff": {
+        0: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/45/Eragrostis_tef_-_teff_%28aka%29.jpg/640px-Eragrostis_tef_-_teff_%28aka%29.jpg",
+        1: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/21/Panicum_miliaceum_USDA.jpg/640px-Panicum_miliaceum_USDA.jpg",
+        2: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/18/Drought_in_Australia_2006.jpg/640px-Drought_in_Australia_2006.jpg",
+    },
+    "Barley": {
+        0: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Barley_field.jpg/640px-Barley_field.jpg",
+        1: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/99/Barleyleaf.jpg/640px-Barleyleaf.jpg",
+        2: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/18/Drought_in_Australia_2006.jpg/640px-Drought_in_Australia_2006.jpg",
+    },
+    "Sorghum": {
+        0: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/34/Sorghum_crop_Andhra_Pradesh_India.jpg/640px-Sorghum_crop_Andhra_Pradesh_India.jpg",
+        1: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/84/Sorghum_crop.jpg/640px-Sorghum_crop.jpg",
+        2: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Drought_stress_on_young_corn.jpg/640px-Drought_stress_on_young_corn.jpg",
+    },
+    "Millet": {
+        0: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/21/Panicum_miliaceum_USDA.jpg/640px-Panicum_miliaceum_USDA.jpg",
+        1: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/84/Sorghum_crop.jpg/640px-Sorghum_crop.jpg",
+        2: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/18/Drought_in_Australia_2006.jpg/640px-Drought_in_Australia_2006.jpg",
+    },
+    "Oats": {
+        0: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e4/Avena_sativa_-_K%C3%B6hler%E2%80%93s_Medizinal-Pflanzen-016.jpg/640px-Avena_sativa_-_K%C3%B6hler%E2%80%93s_Medizinal-Pflanzen-016.jpg",
+        1: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Barley_field.jpg/640px-Barley_field.jpg",
+        2: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/18/Drought_in_Australia_2006.jpg/640px-Drought_in_Australia_2006.jpg",
+    },
+}
+
+DEFAULT_LAND_BY_RISK = {
+    0: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7c/Wheat_field_in_Dorset%2C_England_-_July_2009.jpg/640px-Wheat_field_in_Dorset%2C_England_-_July_2009.jpg",
+    1: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Farmland_at_sunset.jpg/640px-Farmland_at_sunset.jpg",
+    2: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/18/Drought_in_Australia_2006.jpg/640px-Drought_in_Australia_2006.jpg",
+}
+
+DEFAULT_LAND_IMAGE = DEFAULT_LAND_BY_RISK[0]
+
+def get_crop_land_image(crop_name, risk_code=None):
+    """Return field image filled with selected crop type, adjusted dynamically by risk level."""
+    code = int(risk_code) if risk_code is not None else 0
+    if code not in [0, 1, 2]:
+        code = 0
+
+    for key, risk_dict in CROP_LAND_IMAGES.items():
+        if key.lower() in crop_name.lower() or crop_name.lower() in key.lower():
+            if isinstance(risk_dict, dict):
+                return risk_dict.get(code, DEFAULT_LAND_BY_RISK.get(code, DEFAULT_LAND_IMAGE))
+            return risk_dict
+
+    return DEFAULT_LAND_BY_RISK.get(code, DEFAULT_LAND_IMAGE)
+
+def get_field_density_description(risk_code):
+    """Return human-readable agronomic description of crop spacing according to risk level."""
+    code = int(risk_code) if risk_code is not None else 0
+    if code == 2:
+        return {
+            "title": "🔴 Sparse Stand (Wide Spacing)",
+            "desc": "Crops are far apart with visible dry soil gaps, reflecting severe moisture deficit, poor germination, and high food security risk.",
+            "badge_color": "#dc3545"
+        }
+    elif code == 1:
+        return {
+            "title": "🟡 Moderate Stand (Medium Spacing)",
+            "desc": "Crops show moderate canopy coverage with intermittent thinning, signaling emerging moisture stress and medium risk.",
+            "badge_color": "#fd7e14"
+        }
+    else:
+        return {
+            "title": "🟢 Dense Stand (Optimal Close Spacing)",
+            "desc": "Crops exhibit full canopy closure, robust vegetative density, and thriving stand establishment under low risk conditions.",
+            "badge_color": "#28a745"
+        }
 
 # =====================================================
 # HELPER FUNCTIONS
@@ -243,7 +216,6 @@ def get_risk_reasons(region, crop, year, risk_code, input_data):
 
     risk_code = int(risk_code)
 
-    # --- Reasons (same for all crops) ---
     if yield_growth < 0:
         reasons.append(f"📉 Yield growth rate is **negative ({yield_growth:.2f})**, indicating declining crop yields.")
     elif yield_growth > 0.1:
@@ -271,32 +243,29 @@ def get_risk_reasons(region, crop, year, risk_code, input_data):
     if not reasons:
         reasons.append(f"ℹ️ The model assessed historical patterns for {crop} in {region} ({year}) and determined the risk level.")
 
-    # --- Crop-specific recommendations ---
     crop_lower = crop.lower()
 
-    # Base recommendations per risk level
-    if risk_code == 2:  # High Risk
+    if risk_code == 2:
         base_rec = [
             "🆘 **Immediate action required** — alert local agricultural authorities.",
             "🏦 Activate emergency food reserves and support programs.",
             "📋 Conduct urgent field assessments to verify crop conditions.",
             "🤝 Coordinate with NGOs and government agencies for humanitarian support.",
         ]
-    elif risk_code == 1:  # Medium Risk
+    elif risk_code == 1:
         base_rec = [
             "⚠️ **Monitor closely** — situation may worsen without intervention.",
             "📊 Strengthen early warning monitoring for the coming season.",
             "📦 Build buffer food stocks as a precautionary measure.",
             "🧑‍🌾 Provide farmers with training on improved agricultural practices.",
         ]
-    else:  # Low Risk
+    else:
         base_rec = [
             "✅ **Conditions are stable** — maintain current agricultural practices.",
             "📈 Continue investing in yield improvement programs.",
             "📊 Keep monitoring seasonal trends to detect early changes.",
         ]
 
-    # Crop-specific additions
     if "maize" in crop_lower or "corn" in crop_lower:
         if risk_code == 2:
             crop_rec = [
@@ -318,7 +287,6 @@ def get_risk_reasons(region, crop, year, risk_code, input_data):
                 "🌱 Test improved hybrid maize varieties to boost yield potential.",
                 "📦 Invest in proper post-harvest storage to minimize losses.",
             ]
-
     elif "wheat" in crop_lower:
         if risk_code == 2:
             crop_rec = [
@@ -340,317 +308,7 @@ def get_risk_reasons(region, crop, year, risk_code, input_data):
                 "📈 Explore market linkages for wheat surplus in stable years.",
                 "🌱 Maintain soil health through balanced fertilization programs.",
             ]
-
-    elif "teff" in crop_lower:
-        if risk_code == 2:
-            crop_rec = [
-                "🌿 Use improved teff varieties like QUNCHO or MAGNA with higher yields.",
-                "💧 Avoid waterlogging — teff is highly sensitive to poor drainage.",
-                "🌱 Apply DAP and urea fertilizers at recommended rates for the region.",
-                "🚜 Use row planting instead of broadcasting to improve stand establishment.",
-            ]
-        elif risk_code == 1:
-            crop_rec = [
-                "🌿 Practice row planting to improve weed management and yields.",
-                "💧 Ensure proper land leveling to avoid waterlogging and runoff.",
-                "🌱 Apply organic compost to improve soil structure for teff production.",
-                "📊 Monitor rainfall patterns closely — teff needs consistent moisture.",
-            ]
-        else:
-            crop_rec = [
-                "🌿 Promote teff as a cash crop — high international demand exists.",
-                "📦 Invest in improved threshing equipment to reduce post-harvest losses.",
-                "🌱 Maintain soil fertility through compost and balanced fertilization.",
-            ]
-
-    elif "sorghum" in crop_lower:
-        if risk_code == 2:
-            crop_rec = [
-                "🌾 Sorghum is drought-tolerant — prioritize it over other crops in dry areas.",
-                "💧 Apply limited supplemental irrigation during grain-filling stage.",
-                "🐛 Monitor for sorghum midge and stem borer — apply timely control.",
-                "🌱 Use improved varieties like GAMBELLA-1 or MELKAM for better yield.",
-            ]
-        elif risk_code == 1:
-            crop_rec = [
-                "🌾 Practice early planting to maximize use of early rains.",
-                "🌿 Intercrop sorghum with cowpea to improve soil fertility.",
-                "💧 Use tied ridges to conserve soil moisture in low-rainfall areas.",
-                "📊 Track bird damage risks — deploy bird scarers during grain maturity.",
-            ]
-        else:
-            crop_rec = [
-                "🌾 Expand sorghum production as a food security buffer crop.",
-                "📦 Promote sorghum-based food products to increase market demand.",
-                "🌱 Use sorghum residues as animal feed and soil mulch.",
-            ]
-
-    elif "barley" in crop_lower:
-        if risk_code == 2:
-            crop_rec = [
-                "🌾 Use improved barley varieties tolerant to cold and drought.",
-                "💧 Supplement rainfall with irrigation during booting stage.",
-                "🍄 Apply fungicides against barley net blotch and scald diseases.",
-                "🌡️ Plant early to avoid frost damage at high altitudes.",
-            ]
-        elif risk_code == 1:
-            crop_rec = [
-                "🌾 Apply balanced NPK fertilizers to maintain yield levels.",
-                "🌿 Rotate barley with legumes to break pest and disease cycles.",
-                "💧 Monitor soil moisture during grain filling — critical for yield.",
-                "📊 Scout for aphids and other sucking pests regularly.",
-            ]
-        else:
-            crop_rec = [
-                "🌾 Promote malting barley varieties for brewery market linkages.",
-                "📈 Expand barley in highland areas with stable rainfall.",
-                "🌱 Use barley straw as livestock feed and soil organic matter.",
-            ]
-
-    elif "coffee" in crop_lower:
-        if risk_code == 2:
-            crop_rec = [
-                "☕ Apply shade management to protect coffee from temperature extremes.",
-                "🍄 Monitor for coffee berry disease and leaf rust — apply fungicides.",
-                "💧 Provide supplemental irrigation during dry spells in flowering period.",
-                "🌿 Rehabilitate old unproductive coffee trees by stumping.",
-            ]
-        elif risk_code == 1:
-            crop_rec = [
-                "☕ Apply organic mulch under coffee trees to conserve soil moisture.",
-                "🌿 Prune coffee trees to improve air circulation and reduce disease.",
-                "💧 Ensure drainage in coffee fields to prevent root rot.",
-                "📦 Improve post-harvest processing to maintain coffee quality.",
-            ]
-        else:
-            crop_rec = [
-                "☕ Invest in certification (organic, fair trade) for premium prices.",
-                "📈 Expand coffee gardens in suitable agroforestry systems.",
-                "🌱 Plant shade trees to improve coffee microclimate and biodiversity.",
-            ]
-
-    elif "sesame" in crop_lower:
-        if risk_code == 2:
-            crop_rec = [
-                "🌻 Use drought-tolerant sesame varieties suited for lowland areas.",
-                "💧 Avoid excessive irrigation — sesame is sensitive to waterlogging.",
-                "🐛 Monitor for sesame webworm and apply control measures early.",
-                "🌱 Apply phosphorus fertilizer to improve pod set in stressed conditions.",
-            ]
-        elif risk_code == 1:
-            crop_rec = [
-                "🌻 Practice timely weeding — sesame is highly competitive with weeds early on.",
-                "💧 Use furrow irrigation carefully to avoid stem rot.",
-                "📦 Harvest sesame at the right maturity to avoid shattering losses.",
-                "🌿 Rotate with cereals to break sesame disease cycles.",
-            ]
-        else:
-            crop_rec = [
-                "🌻 Expand sesame production — strong export market from Ethiopia.",
-                "📦 Invest in cleaning and grading equipment for export quality.",
-                "📈 Link farmers to export cooperatives for better prices.",
-            ]
-
-    elif "chickpea" in crop_lower:
-        if risk_code == 2:
-            crop_rec = [
-                "🫘 Use improved chickpea varieties resistant to botrytis gray mold.",
-                "💧 Avoid waterlogged soils — chickpea is very susceptible to root rot.",
-                "🌿 Apply seed treatment with rhizobium inoculant to fix nitrogen.",
-                "🌡️ Plant early to avoid late-season heat stress during pod filling.",
-            ]
-        elif risk_code == 1:
-            crop_rec = [
-                "🫘 Rotate chickpea with cereals to reduce soil-borne diseases.",
-                "💧 Apply irrigation carefully — only during critical flowering stage.",
-                "🌱 Use raised beds to improve drainage and reduce waterlogging risk.",
-                "📊 Scout for leaf miner and pod borer regularly.",
-            ]
-        else:
-            crop_rec = [
-                "🫘 Promote desi and kabuli chickpea for domestic and export markets.",
-                "📦 Improve storage with hermetic bags to maintain seed quality.",
-                "🌿 Use chickpea as a green manure crop to improve soil fertility.",
-            ]
-
-    elif "millet" in crop_lower:
-        if risk_code == 2:
-            crop_rec = [
-                "🌾 Millet is highly drought tolerant — prioritize in arid zones.",
-                "💧 Apply only minimal irrigation — millet thrives in low rainfall.",
-                "🌱 Use improved pearl or finger millet varieties for higher yield.",
-                "🐛 Monitor for downy mildew and apply seed treatment before planting.",
-            ]
-        elif risk_code == 1:
-            crop_rec = [
-                "🌾 Plant millet early to make best use of onset rains.",
-                "🌿 Intercrop with cowpea or groundnut for food security.",
-                "💧 Use conservation tillage to preserve soil moisture.",
-                "📦 Promote millet flour for local food products to boost demand.",
-            ]
-        else:
-            crop_rec = [
-                "🌾 Expand millet in marginal lands as food security crop.",
-                "📈 Explore value addition — millet flour, porridge, and beer.",
-                "🌱 Maintain soil fertility with compost and minimal tillage.",
-            ]
-
-    elif "potato" in crop_lower:
-        if risk_code == 2:
-            crop_rec = [
-                "🥔 Use certified disease-free seed potatoes to prevent blight.",
-                "🍄 Apply fungicides against late blight — most destructive potato disease.",
-                "💧 Ensure consistent irrigation — potato yields drop sharply under drought.",
-                "🌡️ Avoid planting during extreme heat — cool temperatures favor potato.",
-            ]
-        elif risk_code == 1:
-            crop_rec = [
-                "🥔 Hill up potato plants to prevent greening and improve tuber set.",
-                "💧 Irrigate regularly during tuber bulking stage for high yields.",
-                "🍄 Scout weekly for early and late blight symptoms.",
-                "📦 Harvest at proper maturity and store in cool, dark conditions.",
-            ]
-        else:
-            crop_rec = [
-                "🥔 Expand potato as a high-value food and income crop.",
-                "📦 Invest in cold storage infrastructure for surplus potato.",
-                "🌱 Promote improved potato varieties with high yield and disease resistance.",
-            ]
-
-    elif "bean" in crop_lower or "faba" in crop_lower:
-        if risk_code == 2:
-            crop_rec = [
-                "🫘 Use improved bean varieties tolerant to drought and rust.",
-                "💧 Apply irrigation during flowering and pod filling stages.",
-                "🍄 Apply fungicides against bean rust and anthracnose diseases.",
-                "🌿 Apply rhizobium inoculant to improve nitrogen fixation.",
-            ]
-        elif risk_code == 1:
-            crop_rec = [
-                "🫘 Ensure proper spacing to improve air circulation and reduce disease.",
-                "💧 Avoid overhead irrigation — use drip or furrow to reduce foliar disease.",
-                "🌱 Rotate beans with cereals to break disease and pest cycles.",
-                "📊 Monitor for bean fly — apply seed dressing before planting.",
-            ]
-        else:
-            crop_rec = [
-                "🫘 Promote bean production for both food security and soil health.",
-                "📈 Link farmers to markets for export of dried beans.",
-                "🌿 Use bean residues as organic matter to improve soil fertility.",
-            ]
-
-    elif "lentil" in crop_lower:
-        if risk_code == 2:
-            crop_rec = [
-                "🫘 Use drought-tolerant lentil varieties adapted to highland conditions.",
-                "💧 Apply supplemental irrigation only during severe dry spells.",
-                "🍄 Monitor for lentil wilt — use resistant varieties where available.",
-                "🌡️ Plant early to avoid terminal drought during pod filling.",
-            ]
-        elif risk_code == 1:
-            crop_rec = [
-                "🫘 Apply rhizobium seed inoculant to enhance nitrogen fixation.",
-                "🌿 Rotate lentils with cereals to reduce soil-borne diseases.",
-                "💧 Ensure good drainage — lentils are sensitive to waterlogging.",
-                "📊 Monitor for aphids and thrips during flowering.",
-            ]
-        else:
-            crop_rec = [
-                "🫘 Expand lentil as a high-protein food security crop.",
-                "📦 Promote lentil export — Ethiopia is a major lentil producer.",
-                "🌱 Use lentil as a rotation crop to improve soil fertility.",
-            ]
-
-    elif "rice" in crop_lower:
-        if risk_code == 2:
-            crop_rec = [
-                "🌾 Use drought-tolerant upland rice varieties for rain-fed areas.",
-                "💧 Maintain adequate water depth in paddy fields during tillering.",
-                "🍄 Monitor for rice blast disease — apply fungicides at boot stage.",
-                "🌿 Apply split nitrogen doses to reduce lodging and improve grain yield.",
-            ]
-        elif risk_code == 1:
-            crop_rec = [
-                "🌾 Practice alternate wetting and drying to reduce water use.",
-                "💧 Ensure irrigation channels are well maintained before planting season.",
-                "🐛 Scout for stem borer — use pheromone traps for early detection.",
-                "🌱 Apply zinc sulfate to address zinc deficiency common in rice soils.",
-            ]
-        else:
-            crop_rec = [
-                "🌾 Expand irrigated rice in lowland areas along rivers.",
-                "📈 Invest in rice milling infrastructure to add value locally.",
-                "🌿 Use rice straw as compost or animal feed to reduce burning.",
-            ]
-
-    elif "enset" in crop_lower:
-        if risk_code == 2:
-            crop_rec = [
-                "🌿 Enset is drought tolerant — maintain existing plants and avoid uprooting.",
-                "🍄 Monitor for enset xanthomonas wilt — remove and destroy infected plants.",
-                "🌱 Plant disease-free suckers from certified sources only.",
-                "👨‍🌾 Strengthen community-based enset management practices.",
-            ]
-        elif risk_code == 1:
-            crop_rec = [
-                "🌿 Maintain adequate spacing to reduce disease spread in enset gardens.",
-                "💧 Apply mulch around enset plants to conserve soil moisture.",
-                "🌱 Propagate improved enset varieties for higher kocho yield.",
-                "📊 Monitor plant health quarterly for early disease detection.",
-            ]
-        else:
-            crop_rec = [
-                "🌿 Expand enset cultivation — it is a key food security crop in southern Ethiopia.",
-                "📦 Invest in enset processing (kocho, bulla) for nutrition and income.",
-                "🌱 Promote agroforestry with enset as an understory crop.",
-            ]
-
-    elif "sunflower" in crop_lower:
-        if risk_code == 2:
-            crop_rec = [
-                "🌻 Use drought-tolerant sunflower hybrids for water-stressed areas.",
-                "💧 Apply irrigation at flowering and seed-filling stages only.",
-                "🐛 Monitor for sunflower head moth and apply control measures.",
-                "🌡️ Avoid late planting — sunflower needs full season to mature.",
-            ]
-        elif risk_code == 1:
-            crop_rec = [
-                "🌻 Apply boron micronutrient to improve seed set in sunflower.",
-                "💧 Avoid waterlogging during early vegetative growth.",
-                "🌿 Rotate sunflower with cereals to manage Sclerotinia stem rot.",
-                "📦 Harvest at proper maturity — test seeds for oil content.",
-            ]
-        else:
-            crop_rec = [
-                "🌻 Expand sunflower for edible oil production and income.",
-                "📈 Link farmers to oil processing cooperatives for value addition.",
-                "🌱 Use sunflower meal as livestock feed after oil extraction.",
-            ]
-
-    elif "sugar" in crop_lower or "cane" in crop_lower:
-        if risk_code == 2:
-            crop_rec = [
-                "🎋 Maintain irrigation infrastructure — sugarcane is very water demanding.",
-                "💧 Apply full irrigation during elongation and maturation stages.",
-                "🐛 Monitor for sugarcane borer — apply biological control agents.",
-                "🌱 Replant with high-yielding disease-resistant varieties.",
-            ]
-        elif risk_code == 1:
-            crop_rec = [
-                "🎋 Apply split nitrogen to reduce lodging and improve cane yield.",
-                "💧 Monitor soil moisture — sugarcane needs consistent water supply.",
-                "🌿 Practice trash mulching to conserve moisture and control weeds.",
-                "📊 Monitor ratoon crop health for early detection of disease.",
-            ]
-        else:
-            crop_rec = [
-                "🎋 Expand sugarcane in irrigated lowland areas.",
-                "📈 Invest in sugar processing to increase value-added production.",
-                "🌱 Use press mud from sugar mills as organic fertilizer.",
-            ]
-
     else:
-        # Generic crop-specific recommendations
         if risk_code == 2:
             crop_rec = [
                 f"🌱 Use improved {crop} varieties adapted to local conditions.",
@@ -713,7 +371,6 @@ def predict_risk(region, crop_type, year):
         'Early_Warning_Score'
     ])
 
-    # Clean input: replace inf/-inf with NaN, then fill NaN with global median
     input_data = input_data.replace([np.inf, -np.inf], np.nan)
     for col in input_data.columns:
         if input_data[col].isnull().any():
@@ -778,7 +435,8 @@ This dashboard predicts food security risk for Ethiopian regions using machine l
 2. Select **Region**, **Crop Type**, and **Year**
 3. Click **Predict Risk**
 4. View results compared between XGBoost and Random Forest
-5. Explore other pages for deeper analysis
+5. Observe how the crop field condition and spacing dynamically adapt to the predicted risk level
+6. Explore other pages for deeper analysis
 """)
 
     st.markdown("---")
@@ -805,37 +463,20 @@ elif page == "🤖 Prediction":
     with col3:
         selected_year = st.selectbox("📅 Year", options=sorted(df["Year"].unique(), reverse=True))
 
-
-    # Show crop image and land image when crop is selected
     st.markdown("---")
     img_col, land_col, info_col = st.columns([1, 1, 2])
     with img_col:
         crop_img_url = get_crop_image(selected_crop)
-        st.image(crop_img_url, caption=f"🌾 {selected_crop}", use_container_width=True)
+        st.image(crop_img_url, caption=f"🌾 {selected_crop} (Reference)", use_container_width=True)
     with land_col:
-        show_crop_land_image(
-            selected_crop,
-            caption=(f"🌱 {selected_crop} Field (illustrative acreage visual; entered area: "
-                     f"shown in the panel)"),
-            use_container_width=True
-        )
+        land_img_url = get_crop_land_image(selected_crop, risk_code=0)
+        st.image(land_img_url, caption=f"🌱 {selected_crop} Field (Baseline Stand)", use_container_width=True)
+        st.caption("ℹ️ *Note: Field stand and plant spacing will dynamically update to reflect the predicted risk.*")
     with info_col:
         st.markdown(f"### Selected Input")
         st.markdown(f"- 🌍 **Region:** {selected_region}")
         st.markdown(f"- 🌾 **Crop Type:** {selected_crop}")
         st.markdown(f"- 📅 **Year:** {selected_year}")
-        st.markdown("#### 🌱 Land Area (Acres)")
-        selected_acres = st.number_input(
-            "Enter the cultivated land area in acres",
-            min_value=0.1,
-            max_value=1000000.0,
-            value=50.0 if str(selected_crop).strip().lower() == "maize" else 1.0,
-            step=1.0,
-            key=f"land_acres_{selected_crop}_{selected_region}_{selected_year}",
-            help="Enter the actual acreage for the selected field. The image is illustrative and does not measure land area."
-        )
-        st.metric("Selected Field Area", f"{selected_acres:,.1f} acres")
-        st.caption(f"Equivalent area: {selected_acres * 0.404686:,.2f} hectares")
         crop_data = df[df["crop type"] == selected_crop]
         if not crop_data.empty:
             region_crop_data = df[
@@ -852,45 +493,49 @@ elif page == "🤖 Prediction":
 
     st.markdown("---")
 
-    st.markdown("---")
-
-    # Gallery of the 7 crop types on the Prediction page
-    st.markdown("### 🌾 Crop Field Gallery")
-    crop_names = ["Maize", "Wheat", "Teff", "Barley", "Sorghum", "Millet", "Oats"]
-    gallery_cols = st.columns(4)
-    for i, crop_name in enumerate(crop_names):
-        with gallery_cols[i % 4]:
-            show_crop_land_image(
-                crop_name,
-                caption=f"🌱 {crop_name} Field",
-                use_container_width=True
-            )
-
-    # Show prediction results only after the button is clicked
     if st.button("🔍 Predict Risk", use_container_width=True):
+
         xgb_pred, rf_pred, input_data = predict_risk(
             selected_region, selected_crop, selected_year
         )
-        st.session_state["region"] = selected_region
-        st.session_state["crop"] = selected_crop
-        st.session_state["year"] = selected_year
-        st.session_state["xgb_pred"] = xgb_pred
-        st.session_state["rf_pred"] = rf_pred
-        st.session_state["input_data"] = input_data
-        st.session_state["predicted"] = True
+
+        st.session_state['region']     = selected_region
+        st.session_state['crop']       = selected_crop
+        st.session_state['year']       = selected_year
+        st.session_state['xgb_pred']   = xgb_pred
+        st.session_state['rf_pred']    = rf_pred
+        st.session_state['input_data'] = input_data
+        st.session_state['predicted']  = True
 
         st.subheader("🎯 Prediction Results")
-        st.markdown(
-            f"**Region:** {selected_region} | **Crop:** {selected_crop} | **Year:** {selected_year}"
-        )
+        st.markdown(f"**Region:** {selected_region} | **Crop:** {selected_crop} | **Year:** {selected_year}")
         st.markdown("---")
-        res_img_col, res_results_col = st.columns([1, 2])
+
+        # Show crop image and dynamic land image based on predicted risk level
+        res_img_col, res_land_col, res_results_col = st.columns([1, 1, 2])
         with res_img_col:
             st.image(
                 get_crop_image(selected_crop),
-                caption=f"🌾 {selected_crop}",
+                caption=f"🌾 {selected_crop} Reference",
                 use_container_width=True
             )
+        with res_land_col:
+            # Field image selected according to predicted risk
+            risk_land_img = get_crop_land_image(selected_crop, risk_code=xgb_pred)
+            density_info = get_field_density_description(xgb_pred)
+            st.image(
+                risk_land_img,
+                caption=f"🌱 {selected_crop} Field — {density_info['title']}",
+                use_container_width=True
+            )
+            st.markdown(
+                f"""<div style='background-color:{density_info["badge_color"]}15; border-left: 4px solid {density_info["badge_color"]}; padding: 8px 12px; border-radius: 6px; margin-top: -6px;'>
+                <b style='color: {density_info["badge_color"]}; font-size: 13px;'>{density_info["title"]}</b><br>
+                <span style='color: #444; font-size: 12px;'>{density_info["desc"]}</span>
+                </div>""",
+                unsafe_allow_html=True
+            )
+
         with res_results_col:
             col1, col2 = st.columns(2)
             with col1:
@@ -913,18 +558,14 @@ elif page == "🤖 Prediction":
                     </div>""",
                     unsafe_allow_html=True
                 )
+
         st.markdown("---")
         if xgb_pred == rf_pred:
-            st.success(
-                f"✅ Both models agree: **{get_risk_label(xgb_pred)}** for "
-                f"{selected_region} - {selected_crop} in {selected_year}."
-            )
+            st.success(f"✅ Both models agree: **{get_risk_label(xgb_pred)}** for {selected_region} - {selected_crop} in {selected_year}.")
         else:
-            st.warning(
-                f"⚠️ Models disagree. XGBoost: **{get_risk_label(xgb_pred)}** | "
-                f"Random Forest: **{get_risk_label(rf_pred)}**."
-            )
-    elif not st.session_state.get("predicted", False):
+            st.warning(f"⚠️ Models disagree. XGBoost: **{get_risk_label(xgb_pred)}** | Random Forest: **{get_risk_label(rf_pred)}**.")
+
+    elif 'predicted' not in st.session_state:
         st.info("👆 Select Region, Crop Type, and Year above then click **Predict Risk**.")
 
 # =====================================================
@@ -987,7 +628,6 @@ elif page == "🔍 Explainable AI":
         st.info("💡 Go to **🤖 Prediction** page first and make a prediction to see SHAP explanations.")
         st.stop()
 
-    # --- Reasons & Recommendations ---
     reasons, recommendations = get_risk_reasons(region, crop, year, xgb_pred, input_data)
 
     col_r, col_rec = st.columns(2)
@@ -1004,7 +644,6 @@ elif page == "🔍 Explainable AI":
 
     st.markdown("---")
 
-    # --- Global Feature Importance ---
     st.subheader("🌍 Global Feature Importance (XGBoost)")
     sample_X  = X_test.sample(min(500, len(X_test)), random_state=42)
     explainer = shap.TreeExplainer(xgb_model)
@@ -1017,12 +656,10 @@ elif page == "🔍 Explainable AI":
 
     st.markdown("---")
 
-    # --- Individual SHAP waterfall ---
     st.subheader("🔎 Feature Contributions for Your Prediction")
     st.caption("Red bars increase risk | Green bars decrease risk | Sorted by importance")
     shap_single = explainer.shap_values(input_data)
 
-    # Extract SHAP values safely
     try:
         if isinstance(shap_single, list):
             idx = min(int(xgb_pred), len(shap_single) - 1)
@@ -1035,13 +672,11 @@ elif page == "🔍 Explainable AI":
     except Exception:
         sv = shap_single[0] if not isinstance(shap_single, list) else shap_single[0][0]
 
-    # Build dataframe sorted by absolute SHAP value
     shap_df = pd.DataFrame({
         "Feature":    input_data.columns.tolist(),
         "SHAP Value": sv
     }).sort_values("SHAP Value", key=abs, ascending=True)
 
-    # Color: red = increases risk, green = decreases risk
     bar_colors = ["#dc3545" if v > 0 else "#28a745" for v in shap_df["SHAP Value"]]
 
     fig_bar, ax_bar = plt.subplots(figsize=(10, 7))
@@ -1055,7 +690,6 @@ elif page == "🔍 Explainable AI":
         height=0.6
     )
 
-    # Add value labels on each bar
     for bar, val in zip(bars, shap_df["SHAP Value"]):
         x_pos = bar.get_width()
         ax_bar.text(
@@ -1068,10 +702,8 @@ elif page == "🔍 Explainable AI":
             color="#333333"
         )
 
-    # Add vertical line at 0
     ax_bar.axvline(x=0, color="black", linewidth=0.8, linestyle="--")
 
-    # Labels and styling
     ax_bar.set_xlabel("SHAP Value  (positive = increases risk,  negative = decreases risk)",
                       fontsize=10)
     ax_bar.set_title(
@@ -1084,7 +716,6 @@ elif page == "🔍 Explainable AI":
     ax_bar.spines["top"].set_visible(False)
     ax_bar.spines["right"].set_visible(False)
 
-    # Custom legend
     from matplotlib.patches import Patch
     legend_elements = [
         Patch(facecolor="#dc3545", label="Increases Risk"),
@@ -1098,7 +729,6 @@ elif page == "🔍 Explainable AI":
 
     st.markdown("---")
 
-    # Summary table below the chart
     st.subheader("📋 Feature Contributions Table")
     shap_table = shap_df.copy().sort_values("SHAP Value", key=abs, ascending=False)
     shap_table["Direction"] = shap_table["SHAP Value"].apply(
@@ -1217,7 +847,6 @@ elif page == "🗺️ Ethiopia Risk Map":
         )
         st.markdown("---")
 
-    # ── Legend ──────────────────────────────────────────────────────────────
     st.markdown("""
     <div style='display:flex; gap:20px; margin-bottom:16px;'>
         <span style='background:#28a745;color:white;padding:6px 16px;border-radius:8px;font-weight:700;'>🟢 Low Risk</span>
@@ -1226,8 +855,6 @@ elif page == "🗺️ Ethiopia Risk Map":
     </div>
     """, unsafe_allow_html=True)
 
-    # ── Ethiopian region centre coordinates ─────────────────────────────────
-    # 10 regions + 2 city administrations
     REGION_COORDS = {
         "Tigray":            (14.0323, 38.3142),
         "Afar":              (11.7557, 40.9087),
@@ -1243,16 +870,13 @@ elif page == "🗺️ Ethiopia Risk Map":
         "Sidama":            ( 6.7792, 38.4521),
     }
 
-    # Build a combined dataframe with risk info + coordinates
     def get_region_coords(region_name):
-        # exact match first
         if region_name in REGION_COORDS:
             return REGION_COORDS[region_name]
-        # partial match
         for key, coords in REGION_COORDS.items():
             if key.lower() in region_name.lower() or region_name.lower() in key.lower():
                 return coords
-        return (9.145, 40.489)  # Ethiopia centre fallback
+        return (9.145, 40.489)
 
     map_df = risk_df.copy()
     map_df['lat'] = map_df['Region'].apply(lambda r: get_region_coords(r)[0])
@@ -1265,9 +889,8 @@ elif page == "🗺️ Ethiopia Risk Map":
     map_df['risk_code'] = map_df['Risk_Category'].apply(
         lambda c: 0 if 'Low' in c else (1 if 'Medium' in c else 2)
     )
-    map_df['size'] = 18  # marker size
+    map_df['size'] = 18
 
-    # ── Full Ethiopia scatter map ────────────────────────────────────────────
     st.subheader("🗺️ Ethiopia — Full Country Risk Map")
 
     fig_main = px.scatter_geo(
@@ -1322,7 +945,6 @@ elif page == "🗺️ Ethiopia Risk Map":
 
     st.markdown("---")
 
-    # ── Individual region cards (3 per row) ──────────────────────────────────
     st.subheader("📍 Individual Region Risk Cards")
 
     all_regions = sorted(map_df['Region'].unique())
@@ -1343,7 +965,6 @@ elif page == "🗺️ Ethiopia Risk Map":
             lat, lon  = row_data['lat'], row_data['lon']
 
             with col:
-                # Mini scatter map zoomed to this region
                 reg_df = pd.DataFrame({
                     'Region':       [reg],
                     'lat':          [lat],
@@ -1390,7 +1011,6 @@ elif page == "🗺️ Ethiopia Risk Map":
                 st.plotly_chart(fig_mini, use_container_width=True,
                                 key=f"mini_{reg}")
 
-                # Risk badge
                 st.markdown(
                     f"""<div style='background:{color};padding:8px;
                     border-radius:8px;text-align:center;margin-top:-8px;'>
@@ -1404,7 +1024,6 @@ elif page == "🗺️ Ethiopia Risk Map":
 
     st.markdown("---")
 
-    # ── Highlight selected region ─────────────────────────────────────────────
     if 'predicted' in st.session_state:
         sel_region = st.session_state['region']
         st.subheader(f"📌 Your Selected Region: {sel_region}")
@@ -1483,196 +1102,6 @@ elif page == "🗺️ Ethiopia Risk Map":
         use_container_width=True
     )
 
-
-
-    # ── Full Ethiopia choropleth map ─────────────────────────────────────────
-    st.subheader("🗺️ Ethiopia — Full Country Risk Map")
-    st.caption("Hover over a region to see its name and risk level.")
-
-    fig_ethiopia = px.choropleth(
-        risk_df,
-        geojson=ethiopia_geojson,
-        featureidkey="properties.ADM1_EN",
-        locations='Region',
-        color='Risk_Category',
-        color_discrete_map={
-            'Low Risk':    '#28a745',
-            'Medium Risk': '#fd7e14',
-            'High Risk':   '#dc3545'
-        },
-        hover_data={'Region': True, 'Risk_Category': True, 'Predicted_Risk': ':.2f'},
-        title="Ethiopia Food Security Risk by Region",
-        labels={'Risk_Category': 'Risk Level', 'Predicted_Risk': 'Risk Score'}
-    )
-    fig_ethiopia.update_geos(
-        fitbounds="locations",
-        visible=False,
-        showcoastlines=True,
-        coastlinecolor="gray",
-        showland=True,
-        landcolor="#f5f5f0",
-        showocean=True,
-        oceancolor="#cce5ff",
-        showlakes=True,
-        lakecolor="#cce5ff",
-        showrivers=True,
-        rivercolor="#aad4f5",
-    )
-    fig_ethiopia.update_layout(
-        margin={"r": 0, "t": 50, "l": 0, "b": 0},
-        height=600,
-        legend=dict(
-            orientation="h",
-            yanchor="bottom", y=0.01,
-            xanchor="right",  x=1
-        )
-    )
-    st.plotly_chart(fig_ethiopia, use_container_width=True)
-
-    st.markdown("---")
-
-    # ── Per-region individual mini maps ─────────────────────────────────────
-    st.subheader("📍 Individual Region Maps")
-    st.caption("Each card shows the food security risk for one Ethiopian region.")
-
-    # Build a colour lookup from risk_df
-    region_color_map = {}
-    region_risk_map  = {}
-    for _, row in risk_df.iterrows():
-        cat = row['Risk_Category']
-        region_color_map[row['Region']] = (
-            '#28a745' if 'Low'    in cat else
-            '#fd7e14' if 'Medium' in cat else
-            '#dc3545'
-        )
-        region_risk_map[row['Region']] = {
-            'category': cat,
-            'score':    row['Predicted_Risk']
-        }
-
-    all_regions = sorted(risk_df['Region'].unique())
-
-    # Show 3 region cards per row
-    cards_per_row = 3
-    for row_start in range(0, len(all_regions), cards_per_row):
-        cols = st.columns(cards_per_row)
-        for col_idx, col in enumerate(cols):
-            r_idx = row_start + col_idx
-            if r_idx >= len(all_regions):
-                break
-            reg = all_regions[r_idx]
-            info  = region_risk_map.get(reg, {'category': 'Unknown', 'score': 0})
-            color = region_color_map.get(reg, '#6c757d')
-
-            with col:
-                # Mini choropleth for this single region
-                region_row = risk_df[risk_df['Region'] == reg]
-                fig_mini = px.choropleth(
-                    region_row,
-                    geojson=ethiopia_geojson,
-                    featureidkey="properties.ADM1_EN",
-                    locations='Region',
-                    color='Risk_Category',
-                    color_discrete_map={
-                        'Low Risk':    '#28a745',
-                        'Medium Risk': '#fd7e14',
-                        'High Risk':   '#dc3545'
-                    },
-                    hover_data={'Region': True, 'Risk_Category': True},
-                )
-                fig_mini.update_geos(
-                    fitbounds="locations",
-                    visible=False,
-                    showland=True,
-                    landcolor="#f0f0e8",
-                    showcoastlines=False,
-                )
-                fig_mini.update_layout(
-                    margin={"r": 0, "t": 0, "l": 0, "b": 0},
-                    height=200,
-                    showlegend=False,
-                    paper_bgcolor="rgba(0,0,0,0)",
-                    plot_bgcolor="rgba(0,0,0,0)",
-                )
-                st.plotly_chart(fig_mini, use_container_width=True,
-                                key=f"mini_map_{reg}")
-
-                # Risk badge below the mini map
-                risk_code_r = (
-                    0 if 'Low'    in info['category'] else
-                    1 if 'Medium' in info['category'] else 2
-                )
-                st.markdown(
-                    f"""<div style='background-color:{color}; padding:8px 12px;
-                    border-radius:8px; text-align:center; margin-top:-10px;'>
-                    <b style='color:white; font-size:14px;'>📍 {reg}</b><br>
-                    <span style='color:white; font-size:13px;'>{get_risk_label(risk_code_r)}</span><br>
-                    <span style='color:white; font-size:11px;'>Score: {info['score']:.2f}</span>
-                    </div>""",
-                    unsafe_allow_html=True
-                )
-                st.markdown(" ")   # spacing
-
-    st.markdown("---")
-
-    # ── Highlight selected region if prediction was made ─────────────────────
-    if 'predicted' in st.session_state:
-        sel_region = st.session_state['region']
-        st.subheader(f"📌 Your Selected Region: {sel_region}")
-
-        region_risk = risk_df[risk_df['Region'] == sel_region]
-        if not region_risk.empty:
-            risk_cat  = region_risk['Risk_Category'].values[0]
-            risk_val  = region_risk['Predicted_Risk'].values[0]
-            risk_code = 0 if "Low" in risk_cat else (1 if "Medium" in risk_cat else 2)
-            color     = get_risk_color(risk_code)
-
-            hl_col1, hl_col2 = st.columns([1, 2])
-            with hl_col1:
-                # Larger map of selected region
-                sel_row = risk_df[risk_df['Region'] == sel_region]
-                fig_sel = px.choropleth(
-                    sel_row,
-                    geojson=ethiopia_geojson,
-                    featureidkey="properties.ADM1_EN",
-                    locations='Region',
-                    color='Risk_Category',
-                    color_discrete_map={
-                        'Low Risk':    '#28a745',
-                        'Medium Risk': '#fd7e14',
-                        'High Risk':   '#dc3545'
-                    },
-                )
-                fig_sel.update_geos(fitbounds="locations", visible=False,
-                                    showland=True, landcolor="#f0f0e8")
-                fig_sel.update_layout(
-                    margin={"r": 0, "t": 0, "l": 0, "b": 0},
-                    height=280, showlegend=False
-                )
-                st.plotly_chart(fig_sel, use_container_width=True,
-                                key="selected_region_map")
-
-            with hl_col2:
-                st.markdown(
-                    f"""<div style='background-color:{color}; padding:30px;
-                    border-radius:12px; text-align:center;'>
-                    <h2 style='color:white; margin:0;'>📍 {sel_region}</h2>
-                    <h1 style='color:white; margin:10px 0 0 0;'>{get_risk_label(risk_code)}</h1>
-                    <p style='color:white; margin:8px 0 0 0; font-size:18px;'>
-                    Risk Score: {risk_val:.2f}</p>
-                    </div>""",
-                    unsafe_allow_html=True
-                )
-        else:
-            st.info(f"No risk map data available for {sel_region}.")
-
-    st.markdown("---")
-    st.subheader("📋 All Regions Risk Table")
-    st.dataframe(
-        risk_df.sort_values("Predicted_Risk", ascending=False),
-        use_container_width=True
-    )
-
 # =====================================================
 # ABOUT PAGE
 # =====================================================
@@ -1690,17 +1119,18 @@ This application predicts food security risk across Ethiopian regions using mach
 2. The system fills remaining features from historical data medians
 3. Both **XGBoost** and **Random Forest** models predict the risk level
 4. Results are shown as **Low**, **Medium**, or **High** risk
-5. SHAP explains which features drove the prediction with reasons and recommendations
+5. Crop field canopy density and spacing dynamically adapt to the risk level
+6. SHAP explains which features drove the prediction with reasons and recommendations
 
 **Models:**
 - 🚀 XGBoost
 - 🌳 Random Forest
 
 **Risk Levels:**
-- 🟢 Low Risk — stable food security
-- 🟡 Medium Risk — monitor closely
-- 🔴 High Risk — immediate action required
+- 🟢 Low Risk — stable food security (dense, thriving stand)
+- 🟡 Medium Risk — monitor closely (moderate stand spacing)
+- 🔴 High Risk — immediate action required (sparse, drought-affected stand)
 
-**Version:** 1.0
+**Version:** 1.0  
 **Country:** 🇪🇹 Ethiopia
 """)
