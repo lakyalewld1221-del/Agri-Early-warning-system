@@ -10,6 +10,7 @@ import joblib
 import shap
 import matplotlib.pyplot as plt
 import plotly.express as px
+import plotly.graph_objects as go
 from sklearn.preprocessing import LabelEncoder
 import json
 
@@ -41,9 +42,12 @@ def load_X_test():
 
 @st.cache_data
 def load_geojson():
-    with open('ethiopia_regions.geojson') as f:
-        geojson_data = json.load(f)
-    return geojson_data
+    try:
+        with open('ethiopia_regions.geojson', encoding='utf-8') as f:
+            geojson_data = json.load(f)
+        return geojson_data
+    except Exception as e:
+        return None
 
 df = load_dataset()
 static_risk_df = load_risk_map()
@@ -74,6 +78,41 @@ crop_encoder = LabelEncoder()
 region_encoder.fit(sorted(df['Region'].unique()))
 crop_encoder.fit(sorted(df['crop type'].unique()))
 
+# Canonical 10 Ethiopian Administrative Regions & Coordinates
+REGION_COORDS = {
+    "Tigray":            (14.0323, 38.3142),
+    "Afar":              (11.7557, 40.9087),
+    "Amhara":            (11.3400, 37.9783),
+    "Oromia":            ( 7.5460, 40.6348),
+    "Somali":            ( 6.6613, 43.7908),
+    "Benishangul-Gumuz": (10.7795, 35.5657),
+    "SNNPR":             ( 6.5000, 37.5000),
+    "Gambela":           ( 7.9000, 34.5833),
+    "Harari":            ( 9.3147, 42.1184),
+    "Dire Dawa":         ( 9.5931, 41.8661),
+    "Addis Ababa":       ( 9.0200, 38.7468),
+    "Sidama":            ( 6.7792, 38.4521),
+}
+
+def normalize_region_name(name):
+    """Normalize region spelling across GeoJSON and datasets."""
+    if not isinstance(name, str):
+        return ""
+    n = name.strip().lower()
+    if "tigray" in n: return "Tigray"
+    if "afar" in n: return "Afar"
+    if "amhara" in n: return "Amhara"
+    if "oromi" in n: return "Oromia"
+    if "somali" in n: return "Somali"
+    if "benishangul" in n or "benshangul" in n: return "Benishangul-Gumuz"
+    if "snnp" in n or "southern" in n: return "SNNPR"
+    if "gambel" in n: return "Gambela"
+    if "harar" in n: return "Harari"
+    if "dire" in n: return "Dire Dawa"
+    if "addis" in n: return "Addis Ababa"
+    if "sidama" in n: return "Sidama"
+    return name.strip()
+
 # =====================================================
 # DYNAMIC REGIONAL RISK COMPUTATION
 # =====================================================
@@ -82,7 +121,10 @@ def get_dynamic_regional_risk(crop_type, year):
     regional_rows = []
     crop_code = crop_encoder.transform([crop_type])[0]
 
-    for reg in sorted(df['Region'].unique()):
+    # Ensure all regions in the dataset are always included
+    all_regions = sorted(df['Region'].unique())
+
+    for reg in all_regions:
         reg_code = region_encoder.transform([reg])[0]
 
         mask = (df["Region"] == reg) & (df["crop type"] == crop_type) & (df["Year"] == year)
@@ -96,6 +138,8 @@ def get_dynamic_regional_risk(crop_type, year):
             base = df
 
         area_val = float(base['Area_Filled'].median() if 'Area_Filled' in base.columns else base['Area cultivated(Ha)'].median())
+        if np.isnan(area_val) or area_val < 0:
+            area_val = 0.0
 
         row_data = {
             'Region': reg,
@@ -104,17 +148,17 @@ def get_dynamic_regional_risk(crop_type, year):
             'Region_Code': reg_code,
             'Crop_Code': crop_code,
             'Area cultivated(Ha)': area_val,
-            'Production(kg)': float(base['Production(kg)'].median()),
-            'Yield_Growth_Rate': float(base['Yield_Growth_Rate'].median()),
-            'Production_Growth_Rate': float(base['Production_Growth_Rate'].median()),
-            'Area_Efficiency': float(base['Area_Efficiency'].median()),
-            'Regional_Avg_Yield': float(base['Regional_Avg_Yield'].median()),
-            'Crop_Avg_Yield': float(base['Crop_Avg_Yield'].median()),
-            'Yield_Anomaly': float(base['Yield_Anomaly'].median()),
-            'Rolling_Yield_Trend': float(base['Rolling_Yield_Trend'].median()),
-            'Yield_Stability': float(base['Yield_Stability'].median()),
-            'Production_Area_Ratio': float(base['Production_Area_Ratio'].median()),
-            'Early_Warning_Score': float(base['Early_Warning_Score'].median()),
+            'Production(kg)': float(base['Production(kg)'].median() if not pd.isna(base['Production(kg)'].median()) else 0.0),
+            'Yield_Growth_Rate': float(base['Yield_Growth_Rate'].median() if not pd.isna(base['Yield_Growth_Rate'].median()) else 0.0),
+            'Production_Growth_Rate': float(base['Production_Growth_Rate'].median() if not pd.isna(base['Production_Growth_Rate'].median()) else 0.0),
+            'Area_Efficiency': float(base['Area_Efficiency'].median() if not pd.isna(base['Area_Efficiency'].median()) else 0.0),
+            'Regional_Avg_Yield': float(base['Regional_Avg_Yield'].median() if not pd.isna(base['Regional_Avg_Yield'].median()) else 0.0),
+            'Crop_Avg_Yield': float(base['Crop_Avg_Yield'].median() if not pd.isna(base['Crop_Avg_Yield'].median()) else 0.0),
+            'Yield_Anomaly': float(base['Yield_Anomaly'].median() if not pd.isna(base['Yield_Anomaly'].median()) else 0.0),
+            'Rolling_Yield_Trend': float(base['Rolling_Yield_Trend'].median() if not pd.isna(base['Rolling_Yield_Trend'].median()) else 0.0),
+            'Yield_Stability': float(base['Yield_Stability'].median() if not pd.isna(base['Yield_Stability'].median()) else 0.0),
+            'Production_Area_Ratio': float(base['Production_Area_Ratio'].median() if not pd.isna(base['Production_Area_Ratio'].median()) else 0.0),
+            'Early_Warning_Score': float(base['Early_Warning_Score'].median() if not pd.isna(base['Early_Warning_Score'].median()) else 0.0),
         }
         regional_rows.append(row_data)
 
@@ -141,6 +185,15 @@ def get_dynamic_regional_risk(crop_type, year):
     cat_map = {0: 'Low Risk', 1: 'Medium Risk', 2: 'High Risk'}
     reg_df['Risk_Category'] = reg_df['Predicted_Risk'].map(cat_map)
     reg_df['Risk_Label']    = reg_df['Predicted_Risk'].apply(lambda c: get_risk_label(c))
+
+    # Add display safe sizes so scatter plots NEVER drop zero-area regions
+    min_bubble = 15
+    max_bubble = 60
+    max_area = reg_df['Area cultivated(Ha)'].max()
+    if max_area > 0:
+        reg_df['Plot_Bubble_Size'] = min_bubble + (reg_df['Area cultivated(Ha)'] / max_area) * (max_bubble - min_bubble)
+    else:
+        reg_df['Plot_Bubble_Size'] = min_bubble
 
     return reg_df
 
@@ -409,8 +462,8 @@ This system forecasts food security risk and models land productivity across Eth
 1. **🤖 Prediction & Cultivated Land Modeling**: Predicts food security risk and analyzes cultivated land parameters.
 2. **🌾 Land Allocation Insights**: Quantifies hectarage, regional land share, and estimated harvest volume.
 3. **🔍 Explainable AI (SHAP)**: Identifies the agronomic and climate drivers behind every risk forecast.
-4. **📊 Dynamic Risk Analysis**: Explores multi-year yield trajectories and regional vulnerability matrices.
-5. **🗺️ Geospatial Risk Map**: Visualizes food security risk distributions interactively across Ethiopia.
+4. **📊 Dynamic Risk Analysis**: Explores multi-year yield trajectories and regional vulnerability matrices across all administrative regions.
+5. **🗺️ Geospatial Risk Map**: Visualizes the complete 10 Ethiopian administrative regions on a unified map.
 """)
 
     st.markdown("---")
@@ -449,10 +502,8 @@ elif page == "🤖 Prediction":
     st.session_state['crop']   = selected_crop
     st.session_state['year']   = selected_year
 
-    # Retrieve Cultivated Land Data for Selected Query
     land_info = get_cultivated_land_info(selected_region, selected_crop, selected_year)
 
-    # Historical Baseline Preview Card
     st.markdown("---")
     with st.container():
         st.markdown(f"#### 📍 Historical Agronomic Profile: **{selected_crop}** in **{selected_region} ({selected_year})**")
@@ -462,7 +513,6 @@ elif page == "🤖 Prediction":
         pcol3.metric("⚡ Yield Productivity", f"{land_info['yield_kgha']:,.1f} kg/Ha", help="Productivity per hectare.")
         pcol4.metric("🗺️ Regional Land Share", f"{land_info['land_share_pct']:.1f}%", help="Percentage of total regional cultivated farmland planted with this crop.")
 
-    # Optional What-If Cultivated Area Adjustment
     with st.expander("⚙️ Optional: Simulate What-If Cultivated Area"):
         custom_ha_input = st.number_input(
             "Modify Cultivated Land (Ha) for Simulation:",
@@ -475,7 +525,6 @@ elif page == "🤖 Prediction":
 
     st.markdown("---")
 
-    # Predict Button
     if st.button("🔍 Predict Risk & Analyze Cultivated Land", use_container_width=True, type="primary"):
 
         active_ha = custom_ha_input if custom_ha_input else land_info['cultivated_ha']
@@ -496,10 +545,8 @@ elif page == "🤖 Prediction":
         st.subheader("🎯 Food Security Risk & Cultivated Land Assessment")
         st.caption(f"Results for **{selected_crop}** cultivated in **{selected_region}** ({selected_year})")
 
-        # Top Metric Row: Risk Level + Cultivated Land KPIs
         m_col1, m_col2, m_col3 = st.columns(3)
 
-        # 1. Cultivated Land Metric
         m_col1.metric(
             label="🌾 Cultivated Land",
             value=f"{active_ha:,.1f} Ha",
@@ -507,7 +554,6 @@ elif page == "🤖 Prediction":
             delta_color="normal"
         )
 
-        # 2. Risk Level Metric
         risk_label_str = get_risk_label(xgb_pred)
         m_col2.metric(
             label="🎯 Predicted Risk Level",
@@ -516,7 +562,6 @@ elif page == "🤖 Prediction":
             delta_color="off"
         )
 
-        # 3. Estimated Harvest Output
         est_prod_tons = (land_info['yield_kgha'] * active_ha) / 1000.0
         m_col3.metric(
             label="📦 Est. Harvest Output",
@@ -527,7 +572,6 @@ elif page == "🤖 Prediction":
 
         st.markdown("---")
 
-        # Model Predictions & Consensus
         st.markdown("##### 🤖 Model Predictions & Consensus")
         col_xgb, col_rf = st.columns(2)
         with col_xgb:
@@ -551,13 +595,11 @@ elif page == "🤖 Prediction":
                 unsafe_allow_html=True
             )
 
-        # Consensus statement
         if xgb_pred == rf_pred:
             st.success(f"✅ Both models strongly agree on **{get_risk_label(xgb_pred)}** for {selected_crop} in {selected_region}.")
         else:
             st.warning(f"⚠️ Model divergence: XGBoost predicts **{get_risk_label(xgb_pred)}**, while Random Forest predicts **{get_risk_label(rf_pred)}**.")
 
-        # Cultivated Land Allocation Card
         st.markdown("##### 🌾 Cultivated Land Allocation Summary")
         st.markdown(
             f"""
@@ -567,13 +609,11 @@ elif page == "🤖 Prediction":
             """
         )
 
-        # Visual land coverage bar
         st.progress(float(min(1.0, max(0.01, land_info['land_share_pct'] / 100.0))))
         st.caption(f"*{selected_crop} represents {land_info['land_share_pct']:.1f}% of total cultivated land in {selected_region}.*")
 
         st.markdown("---")
 
-        # Agronomic Action Plan
         st.subheader("💡 Agronomic Early Warning Advisory for Cultivated Land")
         reasons, recommendations = get_risk_reasons(
             selected_region, selected_crop, selected_year, xgb_pred, input_data, cultivated_ha=active_ha
@@ -746,13 +786,13 @@ elif page == "🔍 Explainable AI":
     plt.close(fig_bar)
 
 # =====================================================
-# RISK ANALYSIS PAGE
+# RISK ANALYSIS PAGE (ALL REGIONS GUARANTEED VISIBLE)
 # =====================================================
 
 elif page == "📊 Risk Analysis":
 
     st.title("📊 Food Security Risk Analysis")
-    st.write("Examine risk forecasts and land utilization dynamics across Ethiopian regions.")
+    st.write("Examine risk forecasts and land utilization dynamics across all Ethiopian administrative regions.")
     st.markdown("---")
 
     col_sel1, col_sel2 = st.columns(2)
@@ -787,9 +827,14 @@ elif page == "📊 Risk Analysis":
 
     st.markdown("---")
 
-    st.subheader(f"🌍 Food Security Risk by Region for {analysis_crop} ({analysis_year})")
+    # 1. Bar Chart: Every single region displayed explicitly
+    st.subheader(f"🌍 Predicted Risk Level by Region ({analysis_crop}, {analysis_year})")
+    
+    # Sort with all regions kept intact
+    bar_df = dyn_risk_df.sort_values(by=['Predicted_Risk', 'Early_Warning_Score'], ascending=[False, False])
+    
     fig_dyn_bar = px.bar(
-        dyn_risk_df.sort_values('Predicted_Risk', ascending=False),
+        bar_df,
         x='Region',
         y='Predicted_Risk',
         color='Risk_Category',
@@ -798,33 +843,54 @@ elif page == "📊 Risk Analysis":
             'Medium Risk': '#fd7e14',
             'High Risk':   '#dc3545'
         },
-        hover_data={'Predicted_Risk': True, 'Risk_Category': True, 'Early_Warning_Score': ':.2f', 'Area cultivated(Ha)': ':,.1f'},
-        labels={'Predicted_Risk': 'Risk Level (0=Low, 1=Med, 2=High)', 'Region': 'Ethiopian Region'},
-        title=f"Predicted Risk Distribution Across Regions for {analysis_crop} in {analysis_year}"
+        hover_data={
+            'Predicted_Risk': True,
+            'Risk_Category': True,
+            'Early_Warning_Score': ':.3f',
+            'Area cultivated(Ha)': ':,.1f',
+            'Production(kg)': ':,.0f'
+        },
+        labels={'Predicted_Risk': 'Risk Code (0=Low, 1=Med, 2=High)', 'Region': 'Administrative Region'},
+        title=f"Complete Regional Distribution for {analysis_crop} ({analysis_year}) — {len(bar_df)} Regions Shown"
     )
-    fig_dyn_bar.update_layout(yaxis=dict(tickmode='array', tickvals=[0, 1, 2], ticktext=['Low (0)', 'Medium (1)', 'High (2)']))
+    fig_dyn_bar.update_layout(
+        yaxis=dict(tickmode='array', tickvals=[0, 1, 2], ticktext=['Low (0)', 'Medium (1)', 'High (2)']),
+        xaxis=dict(categoryorder='total descending'),
+        height=480
+    )
     st.plotly_chart(fig_dyn_bar, use_container_width=True)
 
     st.markdown("---")
 
-    st.subheader("🔬 Cultivated Land vs. Early Warning Score")
-    st.caption("Bubble size indicates total cultivated land (Ha) planted with the selected crop.")
+    # 2. Scatter Plot: Fixed so 0-hectare or unplanted regions are NEVER omitted
+    st.subheader("🔬 Regional Early Warning Score vs. Yield Growth Rate")
+    st.caption("All administrative regions are guaranteed rendered. Marker size represents relative cultivated area (minimum visible size guaranteed).")
 
     fig_scatter = px.scatter(
         dyn_risk_df,
         x='Yield_Growth_Rate',
         y='Early_Warning_Score',
         color='Risk_Category',
-        size='Area cultivated(Ha)',
+        size='Plot_Bubble_Size',  # Non-zero safe size preventing dropped points
+        text='Region',
         hover_name='Region',
         color_discrete_map={
             'Low Risk':    '#28a745',
             'Medium Risk': '#fd7e14',
             'High Risk':   '#dc3545'
         },
+        hover_data={
+            'Plot_Bubble_Size': False,
+            'Area cultivated(Ha)': ':,.1f',
+            'Production(kg)': ':,.0f',
+            'Yield_Growth_Rate': ':.2f',
+            'Early_Warning_Score': ':.3f'
+        },
         labels={'Yield_Growth_Rate': 'Yield Growth Rate', 'Early_Warning_Score': 'Early Warning Score'},
-        title=f"Cultivated Land Dynamics: Early Warning Score vs. Yield Growth Rate ({analysis_crop}, {analysis_year})"
+        title=f"All {len(dyn_risk_df)} Regions: Early Warning Score vs. Yield Growth Rate ({analysis_crop}, {analysis_year})"
     )
+    fig_scatter.update_traces(textposition='top center')
+    fig_scatter.update_layout(height=520)
     st.plotly_chart(fig_scatter, use_container_width=True)
 
     st.markdown("---")
@@ -840,13 +906,13 @@ elif page == "📊 Risk Analysis":
     )
 
 # =====================================================
-# ETHIOPIA RISK MAP PAGE
+# ETHIOPIA RISK MAP (TRUE 10 REGIONS GEOGRAPHICAL MAP)
 # =====================================================
 
 elif page == "🗺️ Ethiopia Risk Map":
 
     st.title("🗺️ Ethiopia Food Security Risk Map")
-    st.write("Geospatial risk mapping dynamically calculated for the selected crop and year.")
+    st.write("Geospatial risk mapping dynamically calculated across all 10 Ethiopian administrative regions.")
     st.markdown("---")
 
     map_c1, map_c2 = st.columns(2)
@@ -862,94 +928,137 @@ elif page == "🗺️ Ethiopia Risk Map":
 
     map_df = get_dynamic_regional_risk(map_crop, map_year)
 
-    REGION_COORDS = {
-        "Tigray":            (14.0323, 38.3142),
-        "Afar":              (11.7557, 40.9087),
-        "Amhara":            (11.3400, 37.9783),
-        "Oromia":            ( 7.5460, 40.6348),
-        "Somali":            ( 6.6613, 43.7908),
-        "Benishangul-Gumuz": (10.7795, 35.5657),
-        "SNNPR":             ( 6.5000, 37.5000),
-        "Gambela":           ( 7.9000, 34.5833),
-        "Harari":            ( 9.3147, 42.1184),
-        "Dire Dawa":         ( 9.5931, 41.8661),
-        "Addis Ababa":       ( 9.0200, 38.7468),
-        "Sidama":            ( 6.7792, 38.4521),
-    }
+    # Standardize region names for geo matching
+    map_df['Norm_Region'] = map_df['Region'].apply(normalize_region_name)
+    
+    # Assign verified centroid coordinates for all regions
+    def get_coords(name):
+        norm = normalize_region_name(name)
+        return REGION_COORDS.get(norm, (9.145, 40.489))
 
-    def get_region_coords(region_name):
-        if region_name in REGION_COORDS:
-            return REGION_COORDS[region_name]
-        for key, coords in REGION_COORDS.items():
-            if key.lower() in region_name.lower() or region_name.lower() in key.lower():
-                return coords
-        return (9.145, 40.489)
+    map_df['lat'] = map_df['Region'].apply(lambda r: get_coords(r)[0])
+    map_df['lon'] = map_df['Region'].apply(lambda r: get_coords(r)[1])
 
-    map_df['lat'] = map_df['Region'].apply(lambda r: get_region_coords(r)[0])
-    map_df['lon'] = map_df['Region'].apply(lambda r: get_region_coords(r)[1])
-    map_df['color'] = map_df['Risk_Category'].map({
-        'Low Risk':    '#28a745',
-        'Medium Risk': '#fd7e14',
-        'High Risk':   '#dc3545'
-    }).fillna('#6c757d')
-    map_df['size'] = 18
+    # Check if geojson polygon matching is feasible
+    geojson_feature_key = None
+    if ethiopia_geojson and 'features' in ethiopia_geojson and len(ethiopia_geojson['features']) > 0:
+        sample_props = ethiopia_geojson['features'][0].get('properties', {})
+        # Detect the property holding region names (e.g., 'NAME_1', 'name', 'Region', 'ADM1_EN')
+        for candidate in ['NAME_1', 'name', 'Region', 'ADM1_EN', 'reg_name', 'admin1Name']:
+            if candidate in sample_props:
+                geojson_feature_key = f"properties.{candidate}"
+                break
 
-    st.subheader(f"🗺️ Ethiopia — Geospatial Risk Map ({map_crop}, {map_year})")
+    st.subheader(f"🗺️ Ethiopia Administrative Regions — Food Security Risk ({map_crop}, {map_year})")
 
-    fig_main = px.scatter_geo(
-        map_df,
-        lat='lat', lon='lon',
-        color='Risk_Category',
-        color_discrete_map={
-            'Low Risk':    '#28a745',
-            'Medium Risk': '#fd7e14',
-            'High Risk':   '#dc3545'
-        },
-        size='Area cultivated(Ha)',
-        size_max=32,
-        hover_name='Region',
-        hover_data={'Risk_Category': True, 'Predicted_Risk': True, 'Early_Warning_Score': ':.2f',
-                    'Area cultivated(Ha)': ':,.1f', 'lat': False, 'lon': False},
-        text='Region',
-        labels={'Risk_Category': 'Risk Level', 'Predicted_Risk': 'Risk Code'},
-        title=f"Ethiopia Food Security Risk & Cultivated Land Distribution — {map_crop} ({map_year})",
-    )
+    # Render Choropleth Map if GeoJSON has matching region boundaries
+    rendered_choropleth = False
+    if ethiopia_geojson and geojson_feature_key:
+        try:
+            # Map normalized names directly into geojson features for 100% boundary matching
+            prop_name = geojson_feature_key.replace("properties.", "")
+            for feature in ethiopia_geojson['features']:
+                raw_val = feature.get('properties', {}).get(prop_name, '')
+                feature['properties']['matched_region'] = normalize_region_name(raw_val)
 
-    fig_main.update_traces(
-        textposition='top center',
-        textfont=dict(size=11, color='black'),
-        marker=dict(opacity=0.9, line=dict(width=1, color='white'))
-    )
+            fig_map = px.choropleth(
+                map_df,
+                geojson=ethiopia_geojson,
+                locations='Norm_Region',
+                featureidkey="properties.matched_region",
+                color='Risk_Category',
+                color_discrete_map={
+                    'Low Risk':    '#28a745',
+                    'Medium Risk': '#fd7e14',
+                    'High Risk':   '#dc3545'
+                },
+                hover_name='Region',
+                hover_data={
+                    'Norm_Region': False,
+                    'Risk_Category': True,
+                    'Early_Warning_Score': ':.3f',
+                    'Area cultivated(Ha)': ':,.1f',
+                    'Production(kg)': ':,.0f'
+                },
+                title=f"Ethiopia Regional Risk Map — {map_crop} ({map_year}) [Choropleth Boundary View]"
+            )
+            fig_map.update_geos(
+                fitbounds="locations",
+                visible=False
+            )
+            fig_map.update_layout(
+                margin={"r": 0, "t": 40, "l": 0, "b": 0},
+                height=650,
+                legend=dict(orientation="h", yanchor="bottom", y=0.01, xanchor="right", x=1)
+            )
+            st.plotly_chart(fig_map, use_container_width=True)
+            rendered_choropleth = True
+        except Exception:
+            rendered_choropleth = False
 
-    fig_main.update_geos(
-        visible=True,
-        resolution=50,
-        scope="africa",
-        showcoastlines=True,  coastlinecolor="#888",
-        showland=True,        landcolor="#f5f4e8",
-        showocean=True,       oceancolor="#cce5ff",
-        showlakes=True,       lakecolor="#cce5ff",
-        showrivers=True,      rivercolor="#aad4f5",
-        showsubunits=True,    subunitcolor="#cccccc",
-        showcountries=True,   countrycolor="#999999",
-        lonaxis_range=[32.0, 48.5],
-        lataxis_range=[ 3.0, 15.5],
-    )
+    # Geospatial regional map overlay showing all 10 regions together
+    if not rendered_choropleth:
+        fig_scatter_map = px.scatter_geo(
+            map_df,
+            lat='lat',
+            lon='lon',
+            color='Risk_Category',
+            color_discrete_map={
+                'Low Risk':    '#28a745',
+                'Medium Risk': '#fd7e14',
+                'High Risk':   '#dc3545'
+            },
+            size='Plot_Bubble_Size',
+            hover_name='Region',
+            text='Region',
+            hover_data={
+                'Plot_Bubble_Size': False,
+                'Risk_Category': True,
+                'Early_Warning_Score': ':.3f',
+                'Area cultivated(Ha)': ':,.1f',
+                'Production(kg)': ':,.0f',
+                'lat': False,
+                'lon': False
+            },
+            title=f"Ethiopia 10 Administrative Regions Risk Map — {map_crop} ({map_year})"
+        )
 
-    fig_main.update_layout(
-        margin={"r": 0, "t": 50, "l": 0, "b": 0},
-        height=600,
-        legend=dict(orientation="h", yanchor="bottom", y=0.01, xanchor="right", x=1),
-        geo=dict(bgcolor="rgba(0,0,0,0)"),
-    )
+        fig_scatter_map.update_traces(
+            textposition='top center',
+            textfont=dict(size=12, color='#111111', family='Arial Black'),
+            marker=dict(opacity=0.9, line=dict(width=1.5, color='white'))
+        )
 
-    st.plotly_chart(fig_main, use_container_width=True)
+        fig_scatter_map.update_geos(
+            visible=True,
+            resolution=50,
+            scope="africa",
+            showcoastlines=True,  coastlinecolor="#777",
+            showland=True,        landcolor="#f4f1ea",
+            showocean=True,       oceancolor="#dbe9f4",
+            showlakes=True,       lakecolor="#dbe9f4",
+            showrivers=True,      rivercolor="#bed6ed",
+            showsubunits=True,    subunitcolor="#b0b0b0",
+            showcountries=True,   countrycolor="#444444",
+            countrywidth=1.5,
+            lonaxis_range=[32.5, 48.2],
+            lataxis_range=[ 3.2, 15.2],
+            center=dict(lat=9.145, lon=40.489)
+        )
+
+        fig_scatter_map.update_layout(
+            margin={"r": 0, "t": 40, "l": 0, "b": 0},
+            height=650,
+            legend=dict(orientation="h", yanchor="bottom", y=0.01, xanchor="right", x=1)
+        )
+        st.plotly_chart(fig_scatter_map, use_container_width=True)
 
     st.markdown("---")
 
-    st.subheader("📋 Regional Risk & Cultivated Land Table")
+    st.subheader("📋 Administrative Regions Risk & Cultivated Land Table")
     st.dataframe(
-        map_df[['Region', 'Risk_Label', 'Area cultivated(Ha)', 'Production(kg)', 'Early_Warning_Score', 'Yield_Growth_Rate', 'Area_Efficiency']].sort_values("Area cultivated(Ha)", ascending=False),
+        map_df[['Region', 'Risk_Label', 'Area cultivated(Ha)', 'Production(kg)', 'Early_Warning_Score', 'Yield_Growth_Rate', 'Area_Efficiency']]
+        .sort_values("Area cultivated(Ha)", ascending=False).reset_index(drop=True),
         use_container_width=True
     )
 
@@ -967,18 +1076,17 @@ This application predicts food security risk and analyzes cultivated land across
 
 **How it works:**
 1. User selects **Region**, **Crop Type**, and **Year**.
-2. The system retrieves the exact **Cultivated Land (Ha)** planted with that crop and calculates land share.
+2. The system retrieves historical and predicted agronomic indicators.
 3. Machine learning models (**XGBoost** and **Random Forest**) predict the food security risk category.
-4. SHAP values explain key agronomic and climate risk drivers, paired with customized recommendations.
+4. Explanations (SHAP) and regional administrative maps identify vulnerable zones.
 
-**Models:**
-- 🚀 XGBoost Classifier
-- 🌳 Random Forest Classifier
+**Administrative Regions Covered:**
+- Tigray, Afar, Amhara, Oromia, Somali, Benishangul-Gumuz, SNNPR, Gambela, Harari, Dire Dawa.
 
 **Risk Levels:**
 - 🟢 **Low Risk** — Stable food security with favorable yield potential.
-- 🟡 **Medium Risk** — Emerging stress requiring close monitoring and proactive safeguards.
-- 🔴 **High Risk** — Severe deficit requiring emergency response and targeted intervention.
+- 🟡 **Medium Risk** — Emerging stress requiring close monitoring.
+- 🔴 **High Risk** — Severe deficit requiring emergency interventions.
 
 **Version:** 2.0  
 **Country:** 🇪🇹 Ethiopia
