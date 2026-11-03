@@ -11,10 +11,7 @@ import shap
 import matplotlib.pyplot as plt
 import plotly.express as px
 from sklearn.preprocessing import LabelEncoder
-import io
-from contextlib import redirect_stdout
 import json
-import seaborn as sns
 
 # =====================================================
 # PAGE CONFIGURATION
@@ -76,159 +73,6 @@ region_encoder = LabelEncoder()
 crop_encoder = LabelEncoder()
 region_encoder.fit(sorted(df['Region'].unique()))
 crop_encoder.fit(sorted(df['crop type'].unique()))
-
-# =====================================================
-# DYNAMIC CROP FIELD SIMULATOR (Scaled to Cultivated Land)
-# =====================================================
-
-def render_crop_field_simulation(crop_name, risk_code, cultivated_ha=None):
-    """
-    Dynamically generates an aerial crop field visualization.
-    Reflects both the predicted risk level spacing and the cultivated land scale.
-    """
-    code = int(risk_code) if risk_code is not None else 0
-    if code not in [0, 1, 2]:
-        code = 0
-
-    fig, ax = plt.subplots(figsize=(6.5, 4.5), dpi=110)
-
-    if code == 2:  # High Risk — Plants are far apart, dry soil, severe drought
-        grid_step = 2.4
-        plant_size = 130
-        plant_color = "#b2973b"
-        plant_edge  = "#5d4037"
-        soil_color  = "#d7ccc8"
-        spacing_text = "FAR APART (>150 cm spacing)"
-        density_pct = "18% Canopy Cover"
-        status_label = "🔴 HIGH RISK — SPARSE / DROUGHT STRESSED"
-        marker_shape = "v"
-        noise_level = 0.35
-        plants_per_ha = 15000
-
-        np.random.seed(42)
-        for _ in range(7):
-            cx = np.random.uniform(1.0, 9.0)
-            cy = np.random.uniform(1.0, 9.0)
-            ax.plot([cx, cx + np.random.uniform(-1.8, 1.8)],
-                    [cy, cy + np.random.uniform(-1.8, 1.8)],
-                    color="#8d6e63", linewidth=1.2, alpha=0.55, linestyle=":")
-
-    elif code == 1:  # Medium Risk — Moderate spacing
-        grid_step = 1.35
-        plant_size = 175
-        plant_color = "#8bc34a"
-        plant_edge  = "#33691e"
-        soil_color  = "#a1887f"
-        spacing_text = "MODERATE (75-90 cm spacing)"
-        density_pct = "52% Canopy Cover"
-        status_label = "🟡 MEDIUM RISK — MODERATE DENSITY"
-        marker_shape = "^"
-        noise_level = 0.16
-        plants_per_ha = 42000
-
-    else:  # Low Risk (code 0) — Dense, lush, thriving
-        grid_step = 0.8
-        plant_size = 220
-        plant_color = "#2e7d32"
-        plant_edge  = "#1b5e20"
-        soil_color  = "#4e342e"
-        spacing_text = "DENSE (30-40 cm close spacing)"
-        density_pct = "94% Canopy Cover"
-        status_label = "🟢 LOW RISK — OPTIMAL DENSE STAND"
-        marker_shape = "^"
-        noise_level = 0.08
-        plants_per_ha = 78000
-
-    ax.set_facecolor(soil_color)
-    fig.patch.set_facecolor("#ffffff")
-
-    xs = np.arange(0.6, 9.6, grid_step)
-    ys = np.arange(0.6, 9.6, grid_step)
-    x_coords, y_coords = [], []
-
-    np.random.seed(15)
-    for x in xs:
-        for y in ys:
-            if code == 2 and np.random.rand() < 0.28:
-                continue
-            elif code == 1 and np.random.rand() < 0.08:
-                continue
-            jitter_x = x + np.random.uniform(-noise_level, noise_level)
-            jitter_y = y + np.random.uniform(-noise_level, noise_level)
-            x_coords.append(jitter_x)
-            y_coords.append(jitter_y)
-
-    ax.scatter(
-        x_coords, y_coords,
-        s=plant_size,
-        c=plant_color,
-        edgecolors=plant_edge,
-        linewidths=1.2,
-        marker=marker_shape,
-        alpha=0.92,
-        zorder=3
-    )
-
-    ax.set_xlim(0, 10)
-    ax.set_ylim(0, 10)
-    ax.set_xticks([])
-    ax.set_yticks([])
-    ax.grid(True, color="#ffffff", alpha=0.18, linestyle="--")
-
-    # Cultivated land & population string
-    if cultivated_ha is not None and cultivated_ha > 0:
-        total_plants = plants_per_ha * cultivated_ha
-        if total_plants >= 1e9:
-            pop_str = f"{total_plants / 1e9:.2f} Billion"
-        elif total_plants >= 1e6:
-            pop_str = f"{total_plants / 1e6:.2f} Million"
-        else:
-            pop_str = f"{total_plants:,.0f}"
-        land_header = f"🌱 {crop_name} Field Canopy ({cultivated_ha:,.1f} Ha Filled)\n{status_label}"
-        banner_text = f"Cultivated Land: {cultivated_ha:,.1f} Ha | Stand Pop: ~{pop_str} plants | {density_pct}"
-    else:
-        land_header = f"🌱 {crop_name} Field Canopy Simulation\n{status_label}"
-        banner_text = f"Spacing: {spacing_text} | {density_pct} | ~{plants_per_ha:,.0f} plants/Ha"
-
-    ax.set_title(land_header, fontsize=10.5, fontweight="bold", color="#111111", pad=8)
-    ax.text(
-        5, 0.45, banner_text,
-        fontsize=8, ha="center", va="center",
-        bbox=dict(boxstyle="round,pad=0.35", facecolor="white", alpha=0.92, edgecolor="#999")
-    )
-
-    plt.tight_layout()
-    return fig
-
-def get_field_density_description(risk_code, cultivated_ha=None):
-    """Return human-readable agronomic description of crop spacing and land coverage."""
-    code = int(risk_code) if risk_code is not None else 0
-    ha_text = f" across {cultivated_ha:,.1f} Ha" if cultivated_ha else ""
-
-    if code == 2:
-        return {
-            "title": "🔴 Sparse Stand (Wide Spacing & Severe Moisture Stress)",
-            "desc": f"Crops{ha_text} are widely spaced with dry soil gaps. Indicates severe germination failure, drought stress, and critical food security risk.",
-            "badge_color": "#dc3545",
-            "plants_per_ha": 15000,
-            "canopy_cover": "18%"
-        }
-    elif code == 1:
-        return {
-            "title": "🟡 Moderate Stand (Medium Spacing & Emerging Stress)",
-            "desc": f"Crops{ha_text} display moderate canopy closure with intermittent thinned patches, reflecting moderate moisture deficit and medium vulnerability.",
-            "badge_color": "#fd7e14",
-            "plants_per_ha": 42000,
-            "canopy_cover": "52%"
-        }
-    else:
-        return {
-            "title": "🟢 Dense Stand (Optimal Close Spacing & High Health)",
-            "desc": f"Crops{ha_text} exhibit full vegetative canopy closure, robust vegetative density, and strong yield potential under low-risk conditions.",
-            "badge_color": "#28a745",
-            "plants_per_ha": 78000,
-            "canopy_cover": "94%"
-        }
 
 # =====================================================
 # DYNAMIC REGIONAL RISK COMPUTATION
@@ -322,7 +166,7 @@ def get_risk_reasons(region, crop, year, risk_code, input_data, cultivated_ha=No
     risk_code = int(risk_code)
 
     if cultivated_ha is not None and cultivated_ha > 0:
-        reasons.append(f"🌾 **Cultivated Land Allocation:** A total of **{cultivated_ha:,.1f} Hectares** is filled with **{crop}** in {region} for {year}.")
+        reasons.append(f"🌾 **Cultivated Land Allocation:** A total of **{cultivated_ha:,.1f} Hectares** is planted with **{crop}** in {region} for {year}.")
 
     if yield_growth < 0:
         reasons.append(f"📉 Yield growth rate is **negative ({yield_growth:.2f})**, indicating declining crop yields.")
@@ -357,7 +201,7 @@ def get_risk_reasons(region, crop, year, risk_code, input_data, cultivated_ha=No
         base_rec = [
             f"🆘 **Immediate action required** on the **{cultivated_ha:,.0f} Ha** of {crop} — alert regional agricultural bureaus.",
             "🏦 Activate strategic emergency grain reserves to buffer local deficits.",
-            "📋 Deploy urgent agronomist teams to inspect crop stand density and pest incidence.",
+            "📋 Deploy urgent agronomist teams to inspect crop stand and pest incidence.",
             "🤝 Mobilize targeted humanitarian cash/food transfers for vulnerable farming households.",
         ]
     elif risk_code == 1:
@@ -441,7 +285,6 @@ def get_cultivated_land_info(region, crop_type, year):
             yield_val = float(df['Yeild (kg/ha)'].median() if 'Yeild (kg/ha)' in df.columns else (prod / area if area > 0 else 0))
         is_exact = False
 
-    # Regional total cultivated area for that year to compute land share
     reg_year_mask = (df["Region"] == region) & (df["Year"] == year)
     reg_year_df = df[reg_year_mask]
     if not reg_year_df.empty:
@@ -539,8 +382,8 @@ st.sidebar.info("""
 Features:
 - 🌾 Cultivated Land Analytics
 - 🎯 Risk Classification (XGBoost / RF)
-- 🌱 Dynamic Crop Canopy Simulator
 - 🔍 SHAP Explainability
+- 🗺️ Geospatial Risk Mapping
 
 Country: 🇪🇹 Ethiopia
 """)
@@ -563,8 +406,8 @@ This system forecasts food security risk and models land productivity across Eth
 👈 **Select '🤖 Prediction' in the sidebar to test predictions for any Region, Crop Type, and Year.**
 
 ### Core Capabilities:
-1. **🤖 Prediction & Cultivated Land Modeling**: Predicts food security risk and visualizes the crop stand canopy across the cultivated land parcel.
-2. **🌾 Land Allocation Insights**: Quantifies hectarage, regional land share, and standing crop population.
+1. **🤖 Prediction & Cultivated Land Modeling**: Predicts food security risk and analyzes cultivated land parameters.
+2. **🌾 Land Allocation Insights**: Quantifies hectarage, regional land share, and estimated harvest volume.
 3. **🔍 Explainable AI (SHAP)**: Identifies the agronomic and climate drivers behind every risk forecast.
 4. **📊 Dynamic Risk Analysis**: Explores multi-year yield trajectories and regional vulnerability matrices.
 5. **🗺️ Geospatial Risk Map**: Visualizes food security risk distributions interactively across Ethiopia.
@@ -578,13 +421,13 @@ This system forecasts food security risk and models land productivity across Eth
     col4.metric("📅 Temporal Range", f"{int(df['Year'].min())} – {int(df['Year'].max())}")
 
 # =====================================================
-# PREDICTION PAGE (With Cultivated Land & Risk Display)
+# PREDICTION PAGE
 # =====================================================
 
 elif page == "🤖 Prediction":
 
     st.title("🤖 Early Warning Prediction & Cultivated Land Analysis")
-    st.write("Enter the **Region**, **Crop Type**, and **Year** to display the predicted risk level and analyze the cultivated land filled with that crop.")
+    st.write("Enter the **Region**, **Crop Type**, and **Year** to display the predicted risk level and analyze the cultivated land.")
     st.markdown("---")
 
     # Input Selectors
@@ -614,10 +457,10 @@ elif page == "🤖 Prediction":
     with st.container():
         st.markdown(f"#### 📍 Historical Agronomic Profile: **{selected_crop}** in **{selected_region} ({selected_year})**")
         pcol1, pcol2, pcol3, pcol4 = st.columns(4)
-        pcol1.metric("🌾 Cultivated Land (Ha)", f"{land_info['cultivated_ha']:,.1f} Ha", help="Area of land cultivated and filled with this crop.")
+        pcol1.metric("🌾 Cultivated Land (Ha)", f"{land_info['cultivated_ha']:,.1f} Ha", help="Area of land cultivated and planted with this crop.")
         pcol2.metric("📦 Production Output", f"{land_info['production_kg']:,.0f} kg", help="Total historical production.")
         pcol3.metric("⚡ Yield Productivity", f"{land_info['yield_kgha']:,.1f} kg/Ha", help="Productivity per hectare.")
-        pcol4.metric("🗺️ Regional Land Share", f"{land_info['land_share_pct']:.1f}%", help="Percentage of total regional cultivated farmland filled with this crop.")
+        pcol4.metric("🗺️ Regional Land Share", f"{land_info['land_share_pct']:.1f}%", help="Percentage of total regional cultivated farmland planted with this crop.")
 
     # Optional What-If Cultivated Area Adjustment
     with st.expander("⚙️ Optional: Simulate What-If Cultivated Area"):
@@ -627,7 +470,7 @@ elif page == "🤖 Prediction":
             max_value=2000000.0,
             value=float(round(land_info['cultivated_ha'], 1)),
             step=500.0,
-            help="Adjust this value to test risk and population on a hypothetical land size."
+            help="Adjust this value to test risk on a hypothetical land size."
         )
 
     st.markdown("---")
@@ -654,11 +497,11 @@ elif page == "🤖 Prediction":
         st.caption(f"Results for **{selected_crop}** cultivated in **{selected_region}** ({selected_year})")
 
         # Top Metric Row: Risk Level + Cultivated Land KPIs
-        m_col1, m_col2, m_col3, m_col4 = st.columns(4)
+        m_col1, m_col2, m_col3 = st.columns(3)
 
         # 1. Cultivated Land Metric
         m_col1.metric(
-            label="🌾 Cultivated Land Filled",
+            label="🌾 Cultivated Land",
             value=f"{active_ha:,.1f} Ha",
             delta=f"{active_ha / 100:,.1f} km² ({land_info['land_share_pct']:.1f}% of regional land)",
             delta_color="normal"
@@ -682,89 +525,55 @@ elif page == "🤖 Prediction":
             delta_color="normal"
         )
 
-        # 4. Total Plant Stand on Cultivated Land
-        density_details = get_field_density_description(xgb_pred, active_ha)
-        total_stand = density_details["plants_per_ha"] * active_ha
-        if total_stand >= 1e9:
-            stand_str = f"~{total_stand / 1e9:.2f} Billion"
-        elif total_stand >= 1e6:
-            stand_str = f"~{total_stand / 1e6:.2f} Million"
-        else:
-            stand_str = f"~{total_stand:,.0f}"
-
-        m_col4.metric(
-            label="🌱 Total Crop Stand Population",
-            value=stand_str,
-            delta=f"{density_details['canopy_cover']} Canopy Density",
-            delta_color="normal"
-        )
-
         st.markdown("---")
 
-        # Detailed Section: Simulation on Left, Risk Badges & Land Impact on Right
-        res_land_col, res_results_col = st.columns([1.2, 1.8])
-
-        with res_land_col:
-            st.markdown("##### 🛰️ Aerial Field Canopy Simulation")
-            field_fig = render_crop_field_simulation(selected_crop, risk_code=xgb_pred, cultivated_ha=active_ha)
-            st.pyplot(field_fig, use_container_width=True)
-
+        # Model Predictions & Consensus
+        st.markdown("##### 🤖 Model Predictions & Consensus")
+        col_xgb, col_rf = st.columns(2)
+        with col_xgb:
+            xgb_color = get_risk_color(xgb_pred)
             st.markdown(
-                f"""<div style='background-color:{density_details["badge_color"]}15; border-left: 4px solid {density_details["badge_color"]}; padding: 10px 14px; border-radius: 8px;'>
-                <b style='color: {density_details["badge_color"]}; font-size: 13px;'>{density_details["title"]}</b><br>
-                <span style='color: #333; font-size: 12px;'>{density_details["desc"]}</span>
+                f"""<div style='background-color:{xgb_color}; padding:22px 15px;
+                border-radius:10px; text-align:center;'>
+                <h4 style='color:white; margin:0;'>🚀 XGBoost</h4>
+                <h2 style='color:white; margin:6px 0 0 0; font-size: 22px;'>{get_risk_label(xgb_pred)}</h2>
+                </div>""",
+                unsafe_allow_html=True
+            )
+        with col_rf:
+            rf_color = get_risk_color(rf_pred)
+            st.markdown(
+                f"""<div style='background-color:{rf_color}; padding:22px 15px;
+                border-radius:10px; text-align:center;'>
+                <h4 style='color:white; margin:0;'>🌳 Random Forest</h4>
+                <h2 style='color:white; margin:6px 0 0 0; font-size: 22px;'>{get_risk_label(rf_pred)}</h2>
                 </div>""",
                 unsafe_allow_html=True
             )
 
-        with res_results_col:
-            st.markdown("##### 🤖 Model Predictions & Consensus")
-            col_xgb, col_rf = st.columns(2)
-            with col_xgb:
-                xgb_color = get_risk_color(xgb_pred)
-                st.markdown(
-                    f"""<div style='background-color:{xgb_color}; padding:22px 15px;
-                    border-radius:10px; text-align:center;'>
-                    <h4 style='color:white; margin:0;'>🚀 XGBoost</h4>
-                    <h2 style='color:white; margin:6px 0 0 0; font-size: 22px;'>{get_risk_label(xgb_pred)}</h2>
-                    </div>""",
-                    unsafe_allow_html=True
-                )
-            with col_rf:
-                rf_color = get_risk_color(rf_pred)
-                st.markdown(
-                    f"""<div style='background-color:{rf_color}; padding:22px 15px;
-                    border-radius:10px; text-align:center;'>
-                    <h4 style='color:white; margin:0;'>🌳 Random Forest</h4>
-                    <h2 style='color:white; margin:6px 0 0 0; font-size: 22px;'>{get_risk_label(rf_pred)}</h2>
-                    </div>""",
-                    unsafe_allow_html=True
-                )
+        # Consensus statement
+        if xgb_pred == rf_pred:
+            st.success(f"✅ Both models strongly agree on **{get_risk_label(xgb_pred)}** for {selected_crop} in {selected_region}.")
+        else:
+            st.warning(f"⚠️ Model divergence: XGBoost predicts **{get_risk_label(xgb_pred)}**, while Random Forest predicts **{get_risk_label(rf_pred)}**.")
 
-            # Consensus statement
-            if xgb_pred == rf_pred:
-                st.success(f"✅ Both models strongly agree on **{get_risk_label(xgb_pred)}** for {selected_crop} in {selected_region}.")
-            else:
-                st.warning(f"⚠️ Model divergence: XGBoost predicts **{get_risk_label(xgb_pred)}**, while Random Forest predicts **{get_risk_label(rf_pred)}**.")
+        # Cultivated Land Allocation Card
+        st.markdown("##### 🌾 Cultivated Land Allocation Summary")
+        st.markdown(
+            f"""
+            - **Total Hectares Planted:** `{active_ha:,.1f} Ha`
+            - **Regional Farmland Share:** `{land_info['land_share_pct']:.2f}%` of all crop land in {selected_region}
+            - **Expected Grain Output:** `{est_prod_tons:,.1f} Metric Tons`
+            """
+        )
 
-            # Cultivated Land Allocation Card
-            st.markdown("##### 🌾 Cultivated Land Allocation Summary")
-            st.markdown(
-                f"""
-                - **Total Hectares Filled:** `{active_ha:,.1f} Ha`
-                - **Regional Farmland Share:** `{land_info['land_share_pct']:.2f}%` of all crop land in {selected_region}
-                - **Plant Spacing & Geometry:** `{density_details['title'].split('(')[-1].replace(')', '')}`
-                - **Expected Grain Output:** `{est_prod_tons:,.1f} Metric Tons`
-                """
-            )
-
-            # Visual land coverage bar
-            st.progress(float(min(1.0, max(0.01, land_info['land_share_pct'] / 100.0))))
-            st.caption(f"*{selected_crop} represents {land_info['land_share_pct']:.1f}% of total cultivated land in {selected_region}.*")
+        # Visual land coverage bar
+        st.progress(float(min(1.0, max(0.01, land_info['land_share_pct'] / 100.0))))
+        st.caption(f"*{selected_crop} represents {land_info['land_share_pct']:.1f}% of total cultivated land in {selected_region}.*")
 
         st.markdown("---")
 
-        # Agronomic Action Plan for the Cultivated Land
+        # Agronomic Action Plan
         st.subheader("💡 Agronomic Early Warning Advisory for Cultivated Land")
         reasons, recommendations = get_risk_reasons(
             selected_region, selected_crop, selected_year, xgb_pred, input_data, cultivated_ha=active_ha
@@ -999,7 +808,7 @@ elif page == "📊 Risk Analysis":
     st.markdown("---")
 
     st.subheader("🔬 Cultivated Land vs. Early Warning Score")
-    st.caption("Bubble size indicates total cultivated land (Ha) filled with the selected crop.")
+    st.caption("Bubble size indicates total cultivated land (Ha) planted with the selected crop.")
 
     fig_scatter = px.scatter(
         dyn_risk_df,
@@ -1158,19 +967,18 @@ This application predicts food security risk and analyzes cultivated land across
 
 **How it works:**
 1. User selects **Region**, **Crop Type**, and **Year**.
-2. The system retrieves the exact **Cultivated Land (Ha)** filled with that crop and calculates land share.
+2. The system retrieves the exact **Cultivated Land (Ha)** planted with that crop and calculates land share.
 3. Machine learning models (**XGBoost** and **Random Forest**) predict the food security risk category.
-4. An aerial field simulator illustrates the crop parcel, showing spacing, canopy closure, and stand population.
-5. SHAP values explain key agronomic and climate risk drivers, paired with customized recommendations.
+4. SHAP values explain key agronomic and climate risk drivers, paired with customized recommendations.
 
 **Models:**
 - 🚀 XGBoost Classifier
 - 🌳 Random Forest Classifier
 
 **Risk Levels:**
-- 🟢 **Low Risk** — Stable food security with dense, thriving canopy (~78,000 plants/Ha).
-- 🟡 **Medium Risk** — Emerging stress requiring close monitoring (~42,000 plants/Ha).
-- 🔴 **High Risk** — Severe deficit requiring emergency response (~15,000 plants/Ha).
+- 🟢 **Low Risk** — Stable food security with favorable yield potential.
+- 🟡 **Medium Risk** — Emerging stress requiring close monitoring and proactive safeguards.
+- 🔴 **High Risk** — Severe deficit requiring emergency response and targeted intervention.
 
 **Version:** 2.0  
 **Country:** 🇪🇹 Ethiopia
