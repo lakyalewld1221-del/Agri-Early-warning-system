@@ -9,6 +9,7 @@ An interactive Streamlit application that classifies the food security risk of E
 ## Overview
 
 Ethiopia's food security depends heavily on rain-fed agriculture, so yield shortfalls can quickly become food crises. Risk is often recognised only after harvests have already failed, national averages hide regional differences, and many machine-learning tools give no reasons for their predictions.
+“Intended users” section: Policy makers, agricultural and disaster management offices, humanitarian organisations, extension workers and researchers working on food security in Ethiopia.
 
 This project addresses these gaps with:
 
